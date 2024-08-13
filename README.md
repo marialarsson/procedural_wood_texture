@@ -13,7 +13,7 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_fiber_4.png" width="200" />
 </p>
 
-1: Radial vonoroi cells (scaled up for visibility). 2: Add noise to cell center point positions (within cell boundary). 3: Scale down. 4: Distortions added.
+1: Radial vonoroi cells (scaled up for visibility). 2: Add noise to cell center point positions (within cell boundary). 3: Scale down. 4: Distortion noise added.
 
 ## Ring construction
 
@@ -22,6 +22,8 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_rings_2.png" width="200" />
   <img src="/screenshot_rings_3.png" width="200" />
 </p>
+
+1: Distance field with a modulus operator at a constant value. 2: Noise added to ring distnaces. 3: Distortion noise added.
 
 ## Pore construction
 
@@ -32,6 +34,8 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_pore_4.png" width="200" />
 </p>
 
+1: Base pattern of pores. 2: Distortion noise added. 3: Pore position noise added. 4: Occurance rate added
+
 ## Ray construation
 
 <p float="center">
@@ -40,6 +44,9 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_ray_3.png" width="200" />
   <img src="/screenshot_ray_4.png" width="200" />
 </p>
+
+1: Base pattern of rays. 2: Distortion noise added. 3: Pore position noise added. 4: Occurance rate added
+
 
 ## Putting everything together
 
@@ -50,7 +57,7 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_fiber_ring_pore_ray.png" width="200" />
 </p>
 
-
+1: Combining fibers and annual rings (let fibers be "pixels" of the annual rings). 2: Blend two colors depending on greyscale value in previous. 3: Add pores. 4: Add rays. 
 
 ## Changing pith origin and orientation
 
@@ -59,7 +66,7 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_fiber_ring_pore_ray_offset_angle.png" width="200" />
 </p>
 
-
+1: Pith origin offsetted. 2: Pith orientation tilted.
 
 ##To dos
 
