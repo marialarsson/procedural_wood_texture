@@ -13,6 +13,8 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_fiber_4.png" width="200" />
 </p>
 
+1: Radial vonoroi cells (scaled up for visibility). 2: Add noise to cell center point positions (within cell boundary). 3: Scale down. 4: Distortions added.
+
 ## Ring construction
 
 <p float="center">
