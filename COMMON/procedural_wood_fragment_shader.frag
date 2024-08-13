@@ -4,8 +4,8 @@
 in vec3 out_position;
 
 // pith 
-uniform vec3 pith_org = vec3(0.2, 0.0, 0.0);
-uniform vec3 pith_dir_in = vec3(0.0, 0.1, 1.0);
+uniform vec3 pith_org = vec3(0.7, 0.2, 0.0);
+uniform vec3 pith_dir_in = vec3(0.3, 0.0, 1.0);
 
 // annual rings
 uniform float average_ring_distance = 0.1;
@@ -17,12 +17,12 @@ uniform float fiber_cell_dim = 0.005; //cell size
 
 // pores
 uniform float pore_radius = 0.2; //ratio of elipse size in cell
-uniform float pore_occurance_rate = 0.7;
+uniform float pore_occurance_rate = 0.75;
 uniform vec3 pore_cell_dims = vec3(0.02, 0.02, 0.2); //cell radial, angular, height dimensions
 
 // rays
 uniform float ray_radius = 0.2; //ratio of elipse size in cell
-uniform float ray_occurance_rate = 0.6;
+uniform float ray_occurance_rate = 0.5;
 uniform vec3 ray_cell_dims = vec3(0.15, 0.02, 0.15); //cell radial, angular, height dimensions
 uniform vec3 ray_col = vec3(0.66,0.59,0.35);
 
@@ -138,13 +138,14 @@ float ellipse_in_even_radial_cell(float d, float a, float h, vec3 cell_dims, flo
     float f=1.0;
 
     float noise_factor = noise_1d(cell_id);
+    //occurance_rate=1.0;
     if (noise_factor<occurance_rate){
-        vec3 pos_noise = noise_3d(cell_id);
+        vec3 pos_noise = sin(2*PI*noise_3d(cell_id));
         coords_in_cell += (0.5-rad)*pos_noise;  
         float vlen = length(coords_in_cell);
         f = smoothstep(rad,rad+smooth_edge_ratio*rad,vlen);
     }
-    
+    //return (ring_id + angle_id)/(angle_num);
     return f;
 }
 
@@ -173,7 +174,7 @@ float ellipse_in_radial_cell(float d, float a, float h, vec3 cell_dims, float oc
     ring_id = ceil(noise_d/cell_dims.x);
     float cell_d = fract(noise_d/cell_dims.x)-0.5;
     
-    float noise_h = h;// + noise_1d(vec2(ring_id,angle_id));//additional height position noise
+    float noise_h = h + noise_1d(vec2(ring_id,angle_id));//additional height position noise
     float height_id = floor(noise_h/cell_dims.z);
     float cell_h = fract(noise_h/cell_dims.z)-0.5;
 
@@ -235,6 +236,8 @@ float[3] vonoroi_radial_grid(float d, float a, float cell_dim){
       vec2[2] cell = radial_cell(d, a, cell_dim, i, j);
       vec2 cell_id = cell[0];
       vec2 cell_coords = cell[1];
+      vec2 my_noise = noise_2d(cell_id + cell_coords);
+      cell_coords = cell_coords + 0.2*sin(2*PI*my_noise)*cell_dim;
       float dist = length(cell_coords-px_coords)/cell_dim;
       min_dist = min(min_dist, dist);
       if (dist==min_dist){
@@ -312,29 +315,35 @@ void main() {
     float fiber_cell_a = fiber_pattern[2];
     
     float fc = min_dist;
-    vec4 fiber_color = clamp(0.85+vec4(fc, fc, fc, 0.0),0.0,1.0);
-    //vec4 fiber_color = vec4(grid_coords,0.0,0.0);
+    //vec4 fiber_color = clamp(0.85+vec4(fc, fc, fc, 0.0),0.0,1.0);
+    vec4 fiber_color = vec4(min_dist,min_dist,min_dist,0.0);
 
     // Annual rings
-    float pnoise = 0.05*periodic_noise_1d(vec2(fiber_cell_d, 0.1*a));
+    float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, a));
+    pnoise += 0.075*periodic_noise_1d(vec2(fiber_cell_d, fiber_cell_d));
+
     float c = mod(fiber_cell_d+pnoise,average_ring_distance) / average_ring_distance;
+    //float c = mod(d+pnoise,average_ring_distance) / average_ring_distance;
     c = pow(c,4);
     float noise_mix = 0.3*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
     vec3 col = mix(earlywood_col, latewood_col, c+noise_mix); 
     vec3 noise_col = noise_3d(vec3(fiber_cell_d,fiber_cell_a,0.0));
     col += 0.025*noise_col;
     vec4 annual_ring_color = vec4(col, 0.0);
-    
+    //annual_ring_color = vec4(c,c,c,0.0); //for debugging
+
     // Pores
     // Constructing the pore 'grid'
     float pore_f = ellipse_in_even_radial_cell(d,a,h,pore_cell_dims, pore_occurance_rate, pore_radius, 0.4);
     vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
+    //vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
 
     // Rays
     // Constructing the ray 'grid'
     //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2);
     float ray_f = ellipse_in_even_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
     vec4 ray_color = vec4(ray_col,0.0);
+    //vec4 ray_color = vec4(ray_f,ray_f,ray_f,0.0);
 
     
     fragColor = annual_ring_color-pore_color;

@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from OpenGL.GL import *
 import OpenGL.GL.shaders
-from scipy.ndimage import zoom
+from PIL import Image
+from PIL import ImageOps
 
 def buffer_verts_and_inds(verts,inds, tex_coords=False):
     
@@ -167,3 +168,11 @@ def create_shader_program(VERT, FRAG):
 
     shader = OpenGL.GL.shaders.compileProgram(OpenGL.GL.shaders.compileShader(VERT, GL_VERTEX_SHADER),OpenGL.GL.shaders.compileShader(FRAG, GL_FRAGMENT_SHADER))
     return shader
+
+
+def get_image_from_glbuffer(width, height):
+    glPixelStorei(GL_PACK_ALIGNMENT, 1)
+    data = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
+    image = Image.frombytes("RGB", (width, height), data)
+    image = ImageOps.flip(image) # in my case image is flipped top-bottom for some reason
+    return image

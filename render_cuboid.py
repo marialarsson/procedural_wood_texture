@@ -71,11 +71,16 @@ def main():
         draw_utils.draw_cuboid_with_procedural_texture(shader_procedural_wood, face_inds, 0*t, xrot0=xrot0, yrot0=yrot0, zrot0=zrot0)
 
         # Finalize
+        img = render_utils.get_image_from_glbuffer(width,height)
         glfw.swap_buffers(window)
         glfw.poll_events()
     
     glfw.terminate()
 
+    # save
+    path = 'screenshot.png'
+    img.save(path, 'PNG')
+    print("Saved", path)
 
 if __name__ == "__main__":
     main()
