@@ -1,7 +1,7 @@
 # procedural_wood_texture
 glwf/glsl implementation of procedural wood texture
 
-![Alt text](./screenshot_fiber_ring_pore_ray_offset_angle.png)
+![Alt text](./screenshot_offset_angle.png)
 
 
 
@@ -79,9 +79,10 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_offset_3.png" width="150" />
   <img src="/screenshot_angle_1.png" width="150" />
   <img src="/screenshot_angle_2.png" width="150" />
+  <img src="/screenshot_offset_angle.png" width="150" />
 </p>
 
-1: Pith origin offsetted. 2: Pith orientation tilted.
+1-2: Pith origin offsetted. 3-4: Pith orientation tilted. 5: Pith origin offsetted and orientation tilted.
 
 ##To dos
 

@@ -4,8 +4,8 @@
 in vec3 out_position;
 
 // pith 
-uniform vec3 pith_org = vec3(0.0, 0.0, 0.0); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0);
-uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0);
+uniform vec3 pith_org = vec3(0.2, 0.4, 0.0); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0);
+uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
 uniform float average_ring_distance = 0.1;
