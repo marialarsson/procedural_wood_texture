@@ -4,6 +4,17 @@ glwf/glsl implementation of procedural wood texture
 ![Alt text](./screenshot_fiber_ring_pore_ray_offset_angle.png)
 
 
+
+## Texture coordinates
+
+<p float="center">
+  <img src="/screenshot_texcoords.png" width="150" />
+  <img src="/screenshot_modified_coords.png" width="150" />
+</p>
+
+1: Input 3D coordinates (x,y,z). 2: Modified cylindrical coordinates (d,a,h) - distance from pith (d), angle around pith (a), height along pith (h).
+
+
 ## Fiber construction
 
 <p float="center">
@@ -23,7 +34,7 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_rings_3.png" width="150" />
 </p>
 
-1: Distance field with a modulus operator at a constant value. 2: Noise added to ring distnaces. 3: Distortion noise added.
+1: Distance field with a modulus operator at a constant value. 2: Noise added to ring distances. 3: Distortion noise added.
 
 ## Pore construction
 

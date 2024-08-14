@@ -364,4 +364,7 @@ void main() {
     //fragColor = annual_ring_color;
     //fragColor = pore_color;
     fragColor = ray_color;
+    fragColor = vec4(d,a,h-2.0, 0.0); //for debugging
+
+
 }
