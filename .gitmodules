@@ -1,0 +1,3 @@
+[submodule "diffwood/ext/nanobind"]
+	path = diffwood/ext/nanobind
+	url = git@github.com:wjakob/nanobind.git
