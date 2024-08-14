@@ -4,7 +4,7 @@
 in vec3 out_position;
 
 // pith 
-uniform vec3 pith_org = vec3(0.2, 0.4, 0.0); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0);
+uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0);
 uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
@@ -28,7 +28,6 @@ uniform vec3 ray_col = vec3(0.66,0.59,0.35);
 
 
 out vec4 fragColor;
-
 // Noise functions
 
 float noise_1d(float p){
