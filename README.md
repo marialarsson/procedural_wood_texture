@@ -69,7 +69,7 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_local_normals.png" width="150" />
 </p>
 
-1: Heightmap based on fibers and pores. 2: Normalmap calcualted based on heightmap.
+1: Height map based on fibers and pores. 2: Normalmap calcualted based on height map.
 
 
 ## Putting everything together
@@ -98,9 +98,7 @@ glwf/glsl implementation of procedural wood texture
 
 ##To dos
 
-Normal map (especially pores will look better if rendered with a normal map)
-- Create the normal map from height field
-- Set up lights
+Set up lights
 
 Import information from step 1 of the optimization (pith center line, etc.).
 
