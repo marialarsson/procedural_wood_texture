@@ -4,8 +4,8 @@
 in vec3 out_position;
 
 // pith 
-uniform vec3 pith_org = vec3(0.7, 0.2, 0.0);
-uniform vec3 pith_dir_in = vec3(0.3, 0.0, 1.0);
+uniform vec3 pith_org = vec3(0.0, 0.0, 0.0); //vec3(0.7, 0.2, 0.0);
+uniform vec3 pith_dir_in = vec3(0.0, 0.0, 1.0); //vec3(0.3, 0.0, 1.0);
 
 // annual rings
 uniform float average_ring_distance = 0.1;
@@ -128,7 +128,7 @@ float ellipse_in_even_radial_cell(float d, float a, float h, vec3 cell_dims, flo
     float angle_id = floor(a*angle_num);
     float cell_a = fract(a*angle_num)-0.5;
 
-    float noise_h = h + noise_1d(vec2(ring_id,angle_id));//additional height position noise
+    float noise_h = h;// + noise_1d(vec2(ring_id,angle_id));//additional height position noise
     float height_id = floor(noise_h/cell_dims.z);
     float cell_h = fract(noise_h/cell_dims.z)-0.5;
 
@@ -138,7 +138,7 @@ float ellipse_in_even_radial_cell(float d, float a, float h, vec3 cell_dims, flo
     float f=1.0;
 
     float noise_factor = noise_1d(cell_id);
-    //occurance_rate=1.0;
+    occurance_rate=1.0;
     if (noise_factor<occurance_rate){
         vec3 pos_noise = sin(2*PI*noise_3d(cell_id));
         coords_in_cell += (0.5-rad)*pos_noise;  
@@ -271,6 +271,17 @@ float vonoroi_grid(float x, float y, float cell_dim){
 }
 
 
+// Normal from neighborhood of height values
+vec3 calculateNormal(float h1, float h2, float h3, float h4, float h, float h5, float h6, float h7, float h8) {
+    // Sobel operator to compute x and y gradients
+    float dx = h3 + 2.0 * h5 + h8 - h1 - 2.0 * h4 - h6;
+    float dy = h1 + 2.0 * h2 + h3 - h6 - 2.0 * h7 - h8;
+
+    // Normal vector is the cross product of the gradient with the z axis
+    vec3 normal = normalize(vec3(-dx, -dy, 1.0));
+    
+    return normal;
+}
 
 // Main
 
@@ -305,8 +316,8 @@ void main() {
 
     //Add some noise for distortion of distnace field
     vec3 distortion_noise = periodic_noise_3d(vec3(d,a,h));
-    d += 0.025*distortion_noise.x;
-    a += 0.03*distortion_noise.y;
+    //d += 0.025*distortion_noise.x;
+    //a += 0.03*distortion_noise.y;
     
     //Fibers (vonoroi)
     float[3] fiber_pattern = vonoroi_radial_grid(d, a, fiber_cell_dim);
@@ -322,35 +333,35 @@ void main() {
     float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, a));
     pnoise += 0.075*periodic_noise_1d(vec2(fiber_cell_d, fiber_cell_d));
 
-    float c = mod(fiber_cell_d+pnoise,average_ring_distance) / average_ring_distance;
-    //float c = mod(d+pnoise,average_ring_distance) / average_ring_distance;
+    //float c = mod(fiber_cell_d+pnoise,average_ring_distance) / average_ring_distance;
+    float c = mod(d,average_ring_distance) / average_ring_distance;
     c = pow(c,4);
     float noise_mix = 0.3*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
     vec3 col = mix(earlywood_col, latewood_col, c+noise_mix); 
     vec3 noise_col = noise_3d(vec3(fiber_cell_d,fiber_cell_a,0.0));
     col += 0.025*noise_col;
     vec4 annual_ring_color = vec4(col, 0.0);
-    //annual_ring_color = vec4(c,c,c,0.0); //for debugging
+    annual_ring_color = vec4(c,c,c,0.0); //for debugging
 
     // Pores
     // Constructing the pore 'grid'
     float pore_f = ellipse_in_even_radial_cell(d,a,h,pore_cell_dims, pore_occurance_rate, pore_radius, 0.4);
-    vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
-    //vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
+    //vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
+    vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
 
     // Rays
     // Constructing the ray 'grid'
     //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2);
     float ray_f = ellipse_in_even_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
-    vec4 ray_color = vec4(ray_col,0.0);
-    //vec4 ray_color = vec4(ray_f,ray_f,ray_f,0.0);
+    //vec4 ray_color = vec4(ray_col,0.0);
+    vec4 ray_color = vec4(ray_f,ray_f,ray_f,0.0);
 
     
-    fragColor = annual_ring_color-pore_color;
-    fragColor = mix(ray_color, fragColor, ray_f);
+    //fragColor = annual_ring_color-pore_color;
+    //fragColor = mix(ray_color, fragColor, ray_f);
     //fragColor = annual_ring_color*fiber_color;
     //fragColor = fiber_color;
     //fragColor = annual_ring_color;
     //fragColor = pore_color;
-    //fragColor = ray_color;
+    fragColor = ray_color;
 }
