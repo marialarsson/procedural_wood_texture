@@ -6,8 +6,8 @@ in vec3 out_abs_normal;
 in vec3 out_normal;
 
 // pith 
-uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
-uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
+uniform vec3 pith_org = vec3(0.0, 0.0, 0.0); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
+uniform vec3 pith_dir_in = vec3(0.0, 0.0, 1.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
 uniform float average_ring_distance = 0.1;
@@ -416,8 +416,8 @@ void main() {
     //fragColor = pore_color;
     //fragColor = ray_color;
     // = vec4(d,a,h-2.0, 0.0); //for debugging
-    fragColor = vec4(col_heightmap,0.0);
+    //fragColor = vec4(col_heightmap,0.0);
     //fragColor = vec4(0.5*(out_abs_normal+1.0),0.0);
-    //fragColor = distorted_normal_color;
+    fragColor = distorted_normal_color;
 
 }
