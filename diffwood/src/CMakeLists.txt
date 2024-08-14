@@ -14,6 +14,8 @@ find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
 set(SRC common.h
         thread.h
+        noise.h
+        noise.cpp
         diffwood.h
         diffwood.cpp)
 
