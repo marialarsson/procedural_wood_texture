@@ -15,6 +15,16 @@ glwf/glsl implementation of procedural wood texture
 1: Input 3D coordinates (x,y,z). 2: Modified cylindrical coordinates (d,a,h) - distance from pith (d), angle around pith (a), height along pith (h).
 
 
+## Ring construction
+
+<p float="center">
+  <img src="/screenshot_rings_1.png" width="150" />
+  <img src="/screenshot_rings_2.png" width="150" />
+  <img src="/screenshot_rings_3.png" width="150" />
+</p>
+
+1: Distance field with a modulus operator at a constant value. 2: Noise added to ring distances. 3: Distortion noise added.
+
 ## Fiber construction
 
 <p float="center">
@@ -26,15 +36,6 @@ glwf/glsl implementation of procedural wood texture
 
 1: Radial vonoroi cells (scaled up for visibility). 2: Add noise to cell center point positions (within cell boundary). 3: Scale down. 4: Distortion noise added.
 
-## Ring construction
-
-<p float="center">
-  <img src="/screenshot_rings_1.png" width="150" />
-  <img src="/screenshot_rings_2.png" width="150" />
-  <img src="/screenshot_rings_3.png" width="150" />
-</p>
-
-1: Distance field with a modulus operator at a constant value. 2: Noise added to ring distances. 3: Distortion noise added.
 
 ## Pore construction
 
