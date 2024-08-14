@@ -88,7 +88,7 @@ glwf/glsl implementation of procedural wood texture
 ## Normals
 
 <p float="center">
-  <img src="/screenshot_heightmap.png" width="150" />
+  <img src="/screenshot_height_map.png" width="150" />
   <img src="/screenshot_local_normals.png" width="150" />
 </p>
 
