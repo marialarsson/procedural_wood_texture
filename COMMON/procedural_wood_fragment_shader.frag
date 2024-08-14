@@ -4,20 +4,20 @@
 in vec3 out_position;
 
 // pith 
-uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0);
+uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
 uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
 uniform float average_ring_distance = 0.1;
 uniform vec3 earlywood_col = vec3(0.75,0.70,0.54);
-uniform vec3 latewood_col = vec3(0.56,0.47,0.33);
+uniform vec3 latewood_col = vec3(0.65,0.55,0.42);
 
 //fibers
 uniform float fiber_cell_dim = 0.005; //cell size
 
 // pores
 uniform float pore_radius = 0.2; //ratio of elipse size in cell
-uniform float pore_occurance_rate = 0.75;
+uniform float pore_occurance_rate = 0.8;
 uniform vec3 pore_cell_dims = vec3(0.02, 0.02, 0.2); //cell radial, angular, height dimensions
 
 // rays
@@ -299,24 +299,16 @@ void main() {
     vec3 base_vec = normalize(vec3(1.0,1.0,1.0));       //initiate a vector to compare vector angle to
     base_vec = normalize(cross(base_vec, pith_dir));    //make perpendicular to pith direction
     vec3 p_dir = normalize(p-closest_point_on_pith);    //vector from closest point on pith to pixel
-    float a;                                            //angle around pith
-    if(length(p_dir-base_vec)<0.0000001){               //edge cases
-      a=0.0;
-    }else if(length(p_dir-base_vec)>1.9999999){
-      a=PI;
-    }else{
-      a = acos(dot(base_vec, p_dir));
-      vec3 cross_vec = cross(base_vec, p_dir);
-      if (dot(pith_dir, cross_vec) < 0) {
-        a = 2.0*PI-a;
-      }
-    }
-    a = map(a, 0.0, 2.0*PI, 0, 1.0); //map omega from range 0-2pi to 0-1.0
+    float a = acos(dot(base_vec, p_dir));               //angle around pith
+    vec3 cross_vec = cross(base_vec, p_dir);
+    float sign = sign(dot(pith_dir, cross_vec));
+    a = a + (1.0 - sign) * PI;
+    a = map(a, 0.0, 2.0*PI, 0, 1.0);                    //map angle from range 0-2pi to 0-1.0
 
     //Add some noise for distortion of distnace field
-    vec3 distortion_noise = periodic_noise_3d(vec3(d,a,h));
-    d += 0.025*distortion_noise.x;
-    a += 0.03*distortion_noise.y;
+    vec3 distortion_noise = periodic_noise_3d(vec3(d,a,0.25*h)); //higher lower factor before h leads to more/less height-wise wavy-ness of the pattern
+    d += 0.10*distortion_noise.x*d;
+    a += 0.01*distortion_noise.y;
     
     //Fibers (vonoroi)
     float[3] fiber_pattern = vonoroi_radial_grid(d, a, fiber_cell_dim);
@@ -329,22 +321,27 @@ void main() {
     vec4 fiber_color = vec4(min_dist,min_dist,min_dist,0.0);
 
     // Annual rings
+
     float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, a));
     pnoise += 0.075*periodic_noise_1d(vec2(fiber_cell_d, fiber_cell_d));
 
+    float ring_color_transition_start = 0.5;
+    float ring_color_transition_peak = 0.9;
     float c = mod(fiber_cell_d+pnoise,average_ring_distance) / average_ring_distance;
-    //float c = mod(d,average_ring_distance) / average_ring_distance;
-    c = pow(c,4);
-    float noise_mix = 0.3*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
+    float t1 = smoothstep(ring_color_transition_start, ring_color_transition_peak, c);
+    float t2 = smoothstep(ring_color_transition_peak, 1.0, c);
+    c = t1 * (1.0 - t2);
+
+    float noise_mix = 0.2*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
     vec3 col = mix(earlywood_col, latewood_col, c+noise_mix); 
-    vec3 noise_col = noise_3d(vec3(fiber_cell_d,fiber_cell_a,0.0));
-    col += 0.025*noise_col;
     vec4 annual_ring_color = vec4(col, 0.0);
     //annual_ring_color = vec4(c,c,c,0.0); //for debugging
 
     // Pores
     // Constructing the pore 'grid'
-    float pore_f = ellipse_in_even_radial_cell(d,a,h,pore_cell_dims, pore_occurance_rate, pore_radius, 0.4);
+    //float pore_occurance_rate_modified = c*c;
+    float pore_occurance_rate_modified = pore_occurance_rate;
+    float pore_f = ellipse_in_even_radial_cell(d,a,h,pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
     vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
     //vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
 
