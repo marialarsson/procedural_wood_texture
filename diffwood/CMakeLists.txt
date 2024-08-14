@@ -30,9 +30,9 @@ target_link_libraries(test PUBLIC Eigen3::Eigen diffwood)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(ext/nanobind)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/diffwood)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_LIST_DIR}/diffwood)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_LIST_DIR}/diffwood)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_LIST_DIR})
 
 nanobind_add_module(_diffwoodcore NOMINSIZE src/main.cpp)
 target_include_directories(_diffwoodcore PUBLIC src)
