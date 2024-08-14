@@ -61,6 +61,17 @@ glwf/glsl implementation of procedural wood texture
 
 1: Base pattern of rays. 2: Ray position in cell noise added. 3: Ray height offset noise added. 4: Distortion noise added. 5: Occurance rate added.
 
+
+## Normals
+
+<p float="center">
+  <img src="/screenshot_height_map.png" width="150" />
+  <img src="/screenshot_local_normals.png" width="150" />
+</p>
+
+1: Heightmap based on fibers and pores. 2: Normalmap calcualted based on heightmap.
+
+
 ## Putting everything together
 
 <p float="center">
@@ -83,16 +94,6 @@ glwf/glsl implementation of procedural wood texture
 </p>
 
 1-2: Pith origin offsetted. 3-4: Pith orientation tilted. 5: Pith origin offsetted and orientation tilted.
-
-
-## Normals
-
-<p float="center">
-  <img src="/screenshot_height_map.png" width="150" />
-  <img src="/screenshot_local_normals.png" width="150" />
-</p>
-
-1: Heightmap based on fibers and pores. 2: Normalmap calcualted based on heightmap.
 
 
 ##To dos
