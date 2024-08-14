@@ -2,6 +2,8 @@
 #define PI 3.1415926535897932384626433832795
 
 in vec3 out_position;
+in vec3 out_abs_normal;
+in vec3 out_normal;
 
 // pith 
 uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
@@ -118,7 +120,11 @@ vec3 closestPointOnLine(vec3 ro, vec3 rd, vec3 p){
 }
 
 //pore
-float ellipse_in_even_radial_cell(float d, float a, float h, vec3 cell_dims, float occurance_rate, float rad, float smooth_edge_ratio){
+float ellipse_in_even_radial_cell(vec3 cylTexCoords, vec3 cell_dims, float occurance_rate, float rad, float smooth_edge_ratio){
+
+    float d = cylTexCoords.x;
+    float a = cylTexCoords.y;
+    float h = cylTexCoords.z;
 
     float ring_id = ceil(d/cell_dims.x);
     float cell_d = fract(d/cell_dims.x)-0.5;
@@ -144,7 +150,7 @@ float ellipse_in_even_radial_cell(float d, float a, float h, vec3 cell_dims, flo
         float vlen = length(coords_in_cell);
         f = smoothstep(rad,rad+smooth_edge_ratio*rad,vlen);
     }
-    //return (ring_id + angle_id)/(angle_num);
+
     return f;
 }
 
@@ -219,7 +225,11 @@ vec2[2] radial_cell(float d, float a, float cell_dim, float i, float j){
     return vec2[2](cell_id, cell_coords);
 }
 
-float[3] vonoroi_radial_grid(float d, float a, float cell_dim){
+float[3] vonoroi_radial_grid(vec3 cylTexCoords, float cell_dim){
+
+  float d = cylTexCoords.x;
+  float a = cylTexCoords.y;
+    
 
   // cartesian coordinates of pixel
   float px_x = d*cos(2*PI*a);
@@ -270,6 +280,7 @@ float vonoroi_grid(float x, float y, float cell_dim){
 }
 
 
+
 // Normal from neighborhood of height values
 vec3 calculateNormal(float h1, float h2, float h3, float h4, float h, float h5, float h6, float h7, float h8) {
     // Sobel operator to compute x and y gradients
@@ -282,16 +293,7 @@ vec3 calculateNormal(float h1, float h2, float h3, float h4, float h, float h5, 
     return normal;
 }
 
-// Main
-
-void main() {
-
-    vec3 p = out_position;
-    //vec4 col = vec4(p, 0.0); //for debugging 3d texture coordinates
-
-    // Analyze pixel position in relation to the pith (center line). 
-    // Distnace (d), height (h), angle (a)
-    vec3 pith_dir = normalize(pith_dir_in);
+vec3 get_cylindrical_tex_coords(vec3 p, vec3 pith_org, vec3 pith_dir){
     vec3 closest_point_on_pith = closestPointOnLine(pith_org, pith_dir, p);
     float d = length(p-closest_point_on_pith);          //distance between current point and closest point on pith line
     vec3 h_st = pith_org - 2.0*pith_dir;                //set point from which the height will be calcualted
@@ -304,14 +306,37 @@ void main() {
     float sign = sign(dot(pith_dir, cross_vec));
     a = a + (1.0 - sign) * PI;
     a = map(a, 0.0, 2.0*PI, 0, 1.0);                    //map angle from range 0-2pi to 0-1.0
-
     //Add some noise for distortion of distnace field
     vec3 distortion_noise = periodic_noise_3d(vec3(d,a,0.25*h)); //higher lower factor before h leads to more/less height-wise wavy-ness of the pattern
     d += 0.10*distortion_noise.x*d;
     a += 0.01*distortion_noise.y;
+    return vec3(d,a,h);
+}
+
+float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 pore_cell_dims, float pore_occurance_rate_modified, float pore_radius, float fiber_cell_dim, float fiber_weight){
+
+    vec3 cyl_coords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
+    float pc = ellipse_in_even_radial_cell(cyl_coords, pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
+    float fc = vonoroi_radial_grid(cyl_coords, fiber_cell_dim)[0];
+    fc = 1.0-fiber_weight*(1.0-fc);
+    float hc = pc*fc;
+    return hc;
+}
+
+// Main
+
+void main() {
+
+    vec3 p = out_position;
+    //vec4 col = vec4(p, 0.0); //for debugging 3d texture coordinates
+
+    // Get pixel position in relation to the pith (center line). 
+    // Distnace (d), height (h), angle (a)
+    vec3 pith_dir = normalize(pith_dir_in);
+    vec3 cylTexCoords = get_cylindrical_tex_coords(p,pith_org,pith_dir);
     
     //Fibers (vonoroi)
-    float[3] fiber_pattern = vonoroi_radial_grid(d, a, fiber_cell_dim);
+    float[3] fiber_pattern = vonoroi_radial_grid(cylTexCoords, fiber_cell_dim);
     float min_dist = fiber_pattern[0];
     float fiber_cell_d = fiber_pattern[1];
     float fiber_cell_a = fiber_pattern[2];
@@ -322,7 +347,7 @@ void main() {
 
     // Annual rings
 
-    float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, a));
+    float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, cylTexCoords.y));
     pnoise += 0.075*periodic_noise_1d(vec2(fiber_cell_d, fiber_cell_d));
 
     float ring_color_transition_start = 0.5;
@@ -341,16 +366,46 @@ void main() {
     // Constructing the pore 'grid'
     //float pore_occurance_rate_modified = c*c;
     float pore_occurance_rate_modified = pore_occurance_rate;
-    float pore_f = ellipse_in_even_radial_cell(d,a,h,pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
+    float pore_f = ellipse_in_even_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
     vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
     //vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
+
 
     // Rays
     // Constructing the ray 'grid'
     //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2);
-    float ray_f = ellipse_in_even_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
+    float ray_f = ellipse_in_even_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
     vec4 ray_color = vec4(ray_col,0.0);
     //vec4 ray_color = vec4(ray_f,ray_f,ray_f,0.0);
+
+
+    // Normals - for creating normal map (especially of pores and fibers)
+    // Define tangent and bitangent
+    vec3 normal = normalize(out_abs_normal);
+    vec3 tangent = normalize(cross(normal, vec3(0.5, 0.5, 0.5)));
+    vec3 bitangent = cross(normal, tangent);
+
+    float stepSize = 0.1*fiber_cell_dim; // Adjust this based on your texture resolution
+
+    // Sample heights
+    float height_center = get_height_map_value( p,                        pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6); // Your height function
+    float height_x_plus = get_height_map_value( p + stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
+    float height_x_minus = get_height_map_value(p - stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
+    float height_y_plus = get_height_map_value( p + stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
+    float height_y_minus = get_height_map_value(p - stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
+
+    vec3 col_heightmap = vec3(height_center,height_center,height_center); // for debugging
+
+    // Compute partial derivatives
+    vec3 dPdx = vec3(stepSize, 0.0, height_x_plus - height_x_minus);
+    vec3 dPdy = vec3(0.0, stepSize, height_y_plus - height_y_minus);
+
+    // Compute normal
+    vec3 computedNormal = normalize(cross(dPdx, dPdy));
+
+    // Output normal to color (for debugging)
+    vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0);
+
 
     
     fragColor = annual_ring_color-pore_color;
@@ -361,6 +416,8 @@ void main() {
     //fragColor = pore_color;
     //fragColor = ray_color;
     // = vec4(d,a,h-2.0, 0.0); //for debugging
-
+    fragColor = vec4(col_heightmap,0.0);
+    //fragColor = vec4(0.5*(out_abs_normal+1.0),0.0);
+    //fragColor = distorted_normal_color;
 
 }

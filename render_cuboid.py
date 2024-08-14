@@ -41,7 +41,7 @@ def main():
     glUseProgram(0)
 
     # Create and buffer cuboid vertecies and indices
-    verts, face_inds, line_inds = render_utils.get_cuboid(cuboid_H,cuboid_W,cuboid_D)
+    verts, face_inds, line_inds = render_utils.get_cuboid_with_normals(cuboid_H,cuboid_W,cuboid_D)
     inds =  np.concatenate([face_inds, line_inds])
     render_utils.buffer_verts_and_inds(verts, inds)
 

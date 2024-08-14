@@ -10,6 +10,7 @@ def get_vertex_shader():
 
             layout(location = 0) in vec3 in_position;
             layout (location = 1) in vec2 in_tex_coord;
+            layout (location = 2) in vec3 in_normal;
 
             uniform mat4 projection;
             uniform mat4 view;
@@ -17,9 +18,14 @@ def get_vertex_shader():
             uniform mat4 transform;
 
             out vec3 out_position;
+            out vec3 out_abs_normal;
+            out vec3 out_normal;
+            
 
             void main() {
                 gl_Position = projection * view * model * transform * vec4(in_position, 1.0);
+                out_abs_normal = in_normal;
+                out_normal = normalize(transpose(inverse(mat3(model))) * in_normal);
                 out_position = in_position;
             }
           """

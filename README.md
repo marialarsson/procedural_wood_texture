@@ -84,6 +84,17 @@ glwf/glsl implementation of procedural wood texture
 
 1-2: Pith origin offsetted. 3-4: Pith orientation tilted. 5: Pith origin offsetted and orientation tilted.
 
+
+## Normals
+
+<p float="center">
+  <img src="/screenshot_heightmap.png" width="150" />
+  <img src="/screenshot_local_normals.png" width="150" />
+</p>
+
+1: Heightmap based on fibers and pores. 2: Normalmap calcualted based on heightmap.
+
+
 ##To dos
 
 Normal map (especially pores will look better if rendered with a normal map)
