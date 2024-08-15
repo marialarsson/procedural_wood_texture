@@ -79,9 +79,10 @@ glwf/glsl implementation of procedural wood texture
   <img src="/screenshot_rings_fibers_2.png" width="150" />
   <img src="/screenshot_pore.png" width="150" />
   <img src="/screenshot_ray.png" width="150" />
+  <img src="/screenshot_normals.png" width="150" />
 </p>
 
-1: Combining fibers and annual rings (let fibers be "pixels" of the annual rings). 2: Blend two colors depending on greyscale value in previous. 3: Add pores. 4: Add rays. 
+1: Combining fibers and annual rings (let fibers be "pixels" of the annual rings). 2: Blend two colors depending on greyscale value in previous. 3: Add pores. 4: Add rays. 5: Add normal map. 
 
 ## Changing pith origin and orientation
 
