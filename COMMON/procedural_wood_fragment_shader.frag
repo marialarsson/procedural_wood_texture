@@ -6,8 +6,8 @@ in vec3 out_abs_normal;
 in vec3 out_normal;
 
 // pith 
-uniform vec3 pith_org = vec3(0.0, 0.0, 0.0); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
-uniform vec3 pith_dir_in = vec3(0.0, 0.0, 1.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
+uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
+uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
 uniform float average_ring_distance = 0.1;
@@ -26,7 +26,7 @@ uniform vec3 pore_cell_dims = vec3(0.02, 0.02, 0.2); //cell radial, angular, hei
 uniform float ray_radius = 0.2; //ratio of elipse size in cell
 uniform float ray_occurance_rate = 0.5;
 uniform vec3 ray_cell_dims = vec3(0.15, 0.02, 0.15); //cell radial, angular, height dimensions
-uniform vec3 ray_col = vec3(0.66,0.59,0.35);
+uniform vec3 ray_color = vec3(0.66,0.59,0.35);
 
 
 out vec4 fragColor;
@@ -313,14 +313,35 @@ vec3 get_cylindrical_tex_coords(vec3 p, vec3 pith_org, vec3 pith_dir){
     return vec3(d,a,h);
 }
 
-float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 pore_cell_dims, float pore_occurance_rate_modified, float pore_radius, float fiber_cell_dim, float fiber_weight){
+float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, float trans_start, float trans_peak){
+    float pnoise = 0.02*periodic_noise_1d(vec2(d, cylTexCoords.y));
+    pnoise += 0.075*periodic_noise_1d(vec2(d, d));
+    float c = mod(d+pnoise,ring_dist) / ring_dist;
+    float t1 = smoothstep(trans_start, trans_peak, c);
+    float t2 = smoothstep(trans_peak, 1.0, c);
+    c = t1 * (1.0 - t2);
+    return c;
+}
 
-    vec3 cyl_coords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
-    float pc = ellipse_in_even_radial_cell(cyl_coords, pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
-    float fc = vonoroi_radial_grid(cyl_coords, fiber_cell_dim)[0];
-    fc = 1.0-fiber_weight*(1.0-fc);
-    float hc = pc*fc;
+float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, float p_rate, float p_rad, float f_dim, float f_w, vec3 r_dims, float r_rate, float r_rad, float ring_dist, float ring_tst, float ring_tpk){
+
+    vec3 cylTexCoords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
+    float pc = ellipse_in_even_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 0.4);
+    float rc = ellipse_in_even_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.4);
+    float[3] fcd = vonoroi_radial_grid(cylTexCoords, f_dim);
+    float ac = annual_ring_factor(cylTexCoords, fcd[1], ring_dist, ring_tst, ring_tpk);
+    ac = 0.2*ac+0.5;
+    rc = 0.5*(1.0-rc);
+    float fc = 1.0-f_w*(1.0-fcd[0]);
+    ac = max(rc,ac);
+    fc = max(rc,fc);
+    float hc = pc*ac*fc;
     return hc;
+
+
+
+
+
 }
 
 // Main
@@ -346,53 +367,45 @@ void main() {
     vec4 fiber_color = vec4(min_dist,min_dist,min_dist,0.0);
 
     // Annual rings
-
-    float pnoise = 0.02*periodic_noise_1d(vec2(fiber_cell_d, cylTexCoords.y));
-    pnoise += 0.075*periodic_noise_1d(vec2(fiber_cell_d, fiber_cell_d));
-
     float ring_color_transition_start = 0.5;
     float ring_color_transition_peak = 0.9;
-    float c = mod(fiber_cell_d+pnoise,average_ring_distance) / average_ring_distance;
-    float t1 = smoothstep(ring_color_transition_start, ring_color_transition_peak, c);
-    float t2 = smoothstep(ring_color_transition_peak, 1.0, c);
-    c = t1 * (1.0 - t2);
-
+    float c = annual_ring_factor(cylTexCoords, fiber_cell_d, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
     float noise_mix = 0.2*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
-    vec3 col = mix(earlywood_col, latewood_col, c+noise_mix); 
-    vec4 annual_ring_color = vec4(col, 0.0);
-    //annual_ring_color = vec4(c,c,c,0.0); //for debugging
+    vec3 annual_ring_color = mix(earlywood_col, latewood_col, c+noise_mix); 
+    //annual_ring_color = vec3(c,c,c); //for debugging
+
 
     // Pores
     // Constructing the pore 'grid'
     //float pore_occurance_rate_modified = c*c;
     float pore_occurance_rate_modified = pore_occurance_rate;
     float pore_f = ellipse_in_even_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
-    vec4 pore_color = 0.2*(1.0-vec4(pore_f,pore_f,pore_f,0.0));
-    //vec4 pore_color = vec4(pore_f,pore_f,pore_f,0.0);
+    vec3 pore_color = 0.05*(1.0-vec3(pore_f,pore_f,pore_f));
+    //vec3 pore_color = vec3(pore_f,pore_f,pore_f); // for debugging
 
 
     // Rays
     // Constructing the ray 'grid'
-    //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2);
+    //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2); // alternative method (under evaluation)
     float ray_f = ellipse_in_even_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
-    vec4 ray_color = vec4(ray_col,0.0);
-    //vec4 ray_color = vec4(ray_f,ray_f,ray_f,0.0);
+    //vec3 ray_color = vec3(ray_f,ray_f,ray_f); // for debuggung
 
 
     // Normals - for creating normal map (especially of pores and fibers)
     // Define tangent and bitangent
-    vec3 normal = normalize(out_abs_normal);
+    vec3 normal = normalize(out_normal);
     vec3 tangent = normalize(cross(normal, vec3(0.5, 0.5, 0.5)));
     vec3 bitangent = cross(normal, tangent);
 
-    float stepSize = 0.1*fiber_cell_dim; // Adjust this based on your texture resolution
 
     // Sample heights
-    float height_center = get_height_map_value( p,                        pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6); // Your height function
-    float height_x_plus = get_height_map_value( p + stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
-    float height_x_minus = get_height_map_value(p - stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
-    float height_y_plus = get_height_map_value( p + stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
-    float height_y_minus = get_height_map_value(p - stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, 0.6);
+    float stepSize = 0.005*fiber_cell_dim; // Adjust this based on your texture resolution
+    float fiber_weight = 0.0005;
+    float height_center = get_height_map_value( p,                        pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak); // Your height function
+    float height_x_plus = get_height_map_value( p + stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
+    float height_x_minus = get_height_map_value(p - stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
+    float height_y_plus = get_height_map_value( p + stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
+    float height_y_minus = get_height_map_value(p - stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
 
     vec3 col_heightmap = vec3(height_center,height_center,height_center); // for debugging
 
@@ -404,20 +417,48 @@ void main() {
     vec3 computedNormal = normalize(cross(dPdx, dPdy));
 
     // Output normal to color (for debugging)
-    vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0);
-
+    vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0); // for debugging
 
     
-    fragColor = annual_ring_color-pore_color;
-    fragColor = mix(ray_color, fragColor, ray_f);
+    // Compute normal map normal in world space
+    mat3 TBN = mat3(tangent, bitangent, out_normal);
+    vec3 worldNormal = normalize(TBN * computedNormal);
+
+    // Combine base normal with normal map normal
+    vec3 combinedNormal = normalize(worldNormal);
+    //vec3 combinedNormal = normalize(out_normal);
+
+    vec3 objectColor = annual_ring_color-pore_color;
+    objectColor = mix(ray_color, objectColor, ray_f);
+
+
+    vec3 lightDir_in = vec3(-0.5,0.75,0.5);
+    float ambientIntensity = 0.8;
+    float diffuseIntensity = 0.3;
+
+    vec3 lightDir = normalize(lightDir_in);
+    //normal = normalize(out_normal);
+    normal = normalize(combinedNormal);
+    
+    // Calculate the diffuse component
+    float diffuse = max(dot(normal, lightDir), 0.0);
+    vec3 diffuseColor = diffuse * objectColor * diffuseIntensity;
+    
+    // Calculate the ambient component
+    vec3 ambientColor = ambientIntensity * objectColor;
+    
+    // Combine the diffuse and ambient components
+    vec3 color = diffuseColor + ambientColor;
+    fragColor = vec4(color, 1.0);
+
+
     //fragColor = annual_ring_color*fiber_color;
     //fragColor = fiber_color;
-    //fragColor = annual_ring_color;
+    //fragColor = vec4(annual_ring_color,1.0);
     //fragColor = pore_color;
     //fragColor = ray_color;
     // = vec4(d,a,h-2.0, 0.0); //for debugging
     //fragColor = vec4(col_heightmap,0.0);
     //fragColor = vec4(0.5*(out_abs_normal+1.0),0.0);
-    fragColor = distorted_normal_color;
-
+    //fragColor = distorted_normal_color;
 }
