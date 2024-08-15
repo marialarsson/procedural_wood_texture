@@ -4,6 +4,9 @@
 in vec3 out_position;
 in vec3 out_abs_normal;
 in vec3 out_normal;
+in vec3 fragPos;
+in vec3 lightPos;
+
 
 // pith 
 uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
@@ -326,16 +329,14 @@ float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, float tran
 float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, float p_rate, float p_rad, float f_dim, float f_w, vec3 r_dims, float r_rate, float r_rad, float ring_dist, float ring_tst, float ring_tpk){
 
     vec3 cylTexCoords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
-    float pc = ellipse_in_even_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 0.4);
-    float rc = ellipse_in_even_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.4);
+    float pc = ellipse_in_even_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 100*p_rad*p_dims.x);
+    float rc = ellipse_in_even_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.0);
     float[3] fcd = vonoroi_radial_grid(cylTexCoords, f_dim);
     float ac = annual_ring_factor(cylTexCoords, fcd[1], ring_dist, ring_tst, ring_tpk);
     ac = 0.2*ac+0.5;
-    rc = 0.5*(1.0-rc);
     float fc = 1.0-f_w*(1.0-fcd[0]);
-    ac = max(rc,ac);
-    fc = max(rc,fc);
     float hc = pc*ac*fc;
+    hc = mix(0.5, hc, rc);
     return hc;
 
 
@@ -387,7 +388,7 @@ void main() {
     // Rays
     // Constructing the ray 'grid'
     //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2); // alternative method (under evaluation)
-    float ray_f = ellipse_in_even_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_rate, ray_radius, 0.4);
+    float ray_f = ellipse_in_even_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_rate, ray_radius, 0.1);
     //vec3 ray_color = vec3(ray_f,ray_f,ray_f); // for debuggung
 
 
@@ -419,7 +420,6 @@ void main() {
     // Output normal to color (for debugging)
     vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0); // for debugging
 
-    
     // Compute normal map normal in world space
     mat3 TBN = mat3(tangent, bitangent, out_normal);
     vec3 worldNormal = normalize(TBN * computedNormal);
@@ -428,15 +428,21 @@ void main() {
     vec3 combinedNormal = normalize(worldNormal);
     //vec3 combinedNormal = normalize(out_normal);
 
+    // Rougness
+    float roughness = 0.9*max(1.0-ray_f,c);
+
+    // Object color
     vec3 objectColor = annual_ring_color-pore_color;
     objectColor = mix(ray_color, objectColor, ray_f);
 
-
-    vec3 lightDir_in = vec3(-0.5,0.75,0.5);
+    vec3 lightDir = normalize(lightPos-fragPos);
+    vec3 viewPos = vec3(0.0, 0.0, -5.0);
+    vec3 viewDir = normalize(viewPos-fragPos);
     float ambientIntensity = 0.8;
     float diffuseIntensity = 0.3;
+    float specularStrength = 0.2; // Controls the intensity of the specular highlight
 
-    vec3 lightDir = normalize(lightDir_in);
+
     //normal = normalize(out_normal);
     normal = normalize(combinedNormal);
     
@@ -447,10 +453,18 @@ void main() {
     // Calculate the ambient component
     vec3 ambientColor = ambientIntensity * objectColor;
     
-    // Combine the diffuse and ambient components
-    vec3 color = diffuseColor + ambientColor;
-    fragColor = vec4(color, 1.0);
+    // Specular calculation
+    vec3 reflectDir = reflect(-lightDir, normal);
 
+    // Modify the specular intensity by the roughness
+    //roughness = 0.5; // for debugging
+    float specular = pow(max(dot(viewDir, reflectDir), 0.0), (1.0 - roughness) * 128.0); // Roughness affects shininess
+    vec3 specularColor = specularStrength * specular * objectColor; // or use light color instead of object color
+
+    // Combine the diffuse, ambient, and specular components
+    vec3 color = diffuseColor + ambientColor + specularColor;
+    //vec3 color = specularColor;
+    fragColor = vec4(color, 1.0);
 
     //fragColor = annual_ring_color*fiber_color;
     //fragColor = fiber_color;
@@ -461,4 +475,5 @@ void main() {
     //fragColor = vec4(col_heightmap,0.0);
     //fragColor = vec4(0.5*(out_abs_normal+1.0),0.0);
     //fragColor = distorted_normal_color;
+    //fragColor = vec4(roughness,roughness,roughness,0.0);
 }

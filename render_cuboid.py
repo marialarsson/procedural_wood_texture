@@ -52,28 +52,31 @@ def main():
     view = pyrr.matrix44.create_from_translation(pyrr.Vector3([0.0,0.0,-5.0]))
     projection = pyrr.matrix44.create_perspective_projection(20.0, 720/600, 0.1, 100.0)
     model = pyrr.matrix44.create_from_translation(pyrr.Vector3([0.0,0.0,0.0]))
+    light_position =  [-5.0,0.0,0.0]
     glLoadIdentity()
 
-    render_utils.update_shader_camera_uniforms(shader_procedural_wood, view, projection, model)
+    render_utils.update_shader_camera_uniforms(shader_procedural_wood, view, projection, model, light_position)
     
     # set rotation of cuboid    
     xrot0 = -math.pi/5 
     yrot0 = math.pi/4 
     zrot0 = 0.0
 
+    t = 0
+
     while not glfw.window_should_close(window):
 
         
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        t = 0 # time, can control rotation etc.
 
-        draw_utils.draw_cuboid_with_procedural_texture(shader_procedural_wood, face_inds, 0*t, xrot0=xrot0, yrot0=yrot0, zrot0=zrot0)
+        draw_utils.draw_cuboid_with_procedural_texture(shader_procedural_wood, face_inds, 0.1*t, xrot0=xrot0, yrot0=yrot0, zrot0=zrot0)
 
         # Finalize
         img = render_utils.get_image_from_glbuffer(width,height)
         glfw.swap_buffers(window)
         glfw.poll_events()
+        #t+=1
     
     glfw.terminate()
 

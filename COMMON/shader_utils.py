@@ -16,17 +16,22 @@ def get_vertex_shader():
             uniform mat4 view;
             uniform mat4 model;
             uniform mat4 transform;
+            uniform vec3 lightPosition;
 
             out vec3 out_position;
+            out vec3 fragPos;
             out vec3 out_abs_normal;
             out vec3 out_normal;
-            
+            out vec3 lightPos;
 
             void main() {
+                vec4 worldPosition = model * vec4(in_position, 1.0);
+                fragPos = worldPosition.xyz;
                 gl_Position = projection * view * model * transform * vec4(in_position, 1.0);
                 out_abs_normal = in_normal;
                 out_normal = normalize(transpose(inverse(mat3(model))) * in_normal);
                 out_position = in_position;
+                lightPos = (view * vec4(lightPosition, 1.0)).xyz;  // Transform light position to view space
             }
           """
     return VERTEX_SHADER
