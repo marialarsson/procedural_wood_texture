@@ -15,6 +15,7 @@ if __name__ == '__main__':
     p = torch.cat((x, y, 0.5*torch.ones_like(x)), dim=1)
 
     noise = dw.periodic_noise_3d(p).view(height, width, 3)
+    noise = noise.detach().cpu().numpy()
 
 
 
@@ -28,5 +29,17 @@ if __name__ == '__main__':
     plt.title('NoiseX')
     plt.imshow(noise[..., 0])
     plt.savefig(os.path.join(output_dir, './noise.png'))
+
+
+
+    if dw.cuda.is_available() and torch.cuda.is_available():
+        p = p.cuda()
+        noise = dw.periodic_noise_3d(p).view(height, width, 3)
+        noise = noise.detach().cpu().numpy()
+
+        plt.clf()
+        plt.title('NoiseX')
+        plt.imshow(noise[..., 0])
+        plt.savefig(os.path.join(output_dir, './noise_cuda.png'))
 
 
