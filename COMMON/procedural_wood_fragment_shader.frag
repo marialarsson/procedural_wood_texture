@@ -1,12 +1,14 @@
 #version 330 core
 #define PI 3.1415926535897932384626433832795
 
-in vec3 out_position;
-in vec3 out_abs_normal;
-in vec3 out_normal;
+in vec3 texCoords3D;
 in vec3 fragPos;
-in vec3 lightPos;
+in vec3 normal;
+in mat3 TBN; 
+in mat3 baseTBN; 
 
+uniform vec3 viewPos;
+uniform vec3 lightPos;
 
 // pith 
 uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
@@ -16,39 +18,25 @@ uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.
 uniform float average_ring_distance = 0.1;
 uniform vec3 earlywood_col = vec3(0.75,0.70,0.54);
 uniform vec3 latewood_col = vec3(0.65,0.55,0.42);
+uniform vec2 ring_col_mix_variables = vec2(0.5, 0.9);
 
 //fibers
 uniform float fiber_cell_dim = 0.005; //cell size
 
 // pores
-uniform float pore_radius = 0.2; //ratio of elipse size in cell
-uniform float pore_occurance_rate = 0.8;
-uniform vec3 pore_cell_dims = vec3(0.02, 0.02, 0.2); //cell radial, angular, height dimensions
+uniform float pore_radius = 0.15; //ratio of elipse size in cell
+uniform float pore_occurance_ratio = 0.8;
+uniform vec3 pore_cell_dims = vec3(0.015, 0.015, 0.2); //cell radial, angular, height dimensions
 
 // rays
 uniform float ray_radius = 0.2; //ratio of elipse size in cell
-uniform float ray_occurance_rate = 0.5;
-uniform vec3 ray_cell_dims = vec3(0.15, 0.02, 0.15); //cell radial, angular, height dimensions
-uniform vec3 ray_color = vec3(0.66,0.59,0.35);
-
+uniform float ray_occurance_ratio = 0.5;
+uniform vec3 ray_cell_dims = vec3(0.2, 0.015, 0.4); //cell radial, angular, height dimensions
+uniform vec3 ray_color = vec3(0.66,0.56,0.40);
 
 out vec4 fragColor;
 // Noise functions
 
-float noise_1d(float p){
-    float x = p*124477.3;
-    float noise = sin(x);
-    noise *= 53758.4453;
-    return fract(noise);
-}
-
-float noise_1d(vec2 p){
-    float x = dot(p, vec2(12.3, 123.4));
-    float y = dot(p, vec2(345.6, 456.7));
-    vec2 noise = sin(vec2(x,y));
-    noise *= 53758.4453;
-    return fract(noise.x+noise.y);
-}
 
 float noise_1d(vec3 p){
     float x = dot(p, vec3(12.3, 123.4, 234.5));
@@ -57,14 +45,6 @@ float noise_1d(vec3 p){
     vec3 noise = sin(vec3(x,y,z));
     noise *= 53758.4453;
     return fract(noise.x+noise.y+noise.z);
-}
-
-vec2 noise_2d(vec2 p){
-    float x = dot(p, vec2(123.4, 234.5));
-    float y = dot(p, vec2(345.6, 456.7));
-    vec2 noise = sin(vec2(x,y));
-    noise *= 43758.5453;
-    return fract(noise);
 }
 
 vec3 noise_3d(vec3 p){
@@ -94,16 +74,6 @@ vec3 periodic_noise_3d(vec3 p) {
     return vec3(noiseX, noiseY, noiseZ);
 }
 
-float periodic_noise_1d(vec2 p) {
-    // Create a basic periodic noise using sine and cosine
-    float noise = sin(2.0 * PI * p.x) * cos(2.0 * PI * p.y);
-    noise += 0.5 * sin(4.0 * PI * p.x) * cos(4.0 * PI * p.y);
-    noise += 0.25 * sin(8.0 * PI * p.x) * cos(8.0 * PI * p.y);
-    
-    // Normalize to range [0, 1]
-    return 0.5 * (noise + 1.0);
-}
-
 // Supporting functions
 
 float map(float value, float min1, float max1, float min2, float max2) {
@@ -122,167 +92,121 @@ vec3 closestPointOnLine(vec3 ro, vec3 rd, vec3 p){
   return cp;
 }
 
-//pore
-float ellipse_in_even_radial_cell(vec3 cylTexCoords, vec3 cell_dims, float occurance_rate, float rad, float smooth_edge_ratio){
+vec3 cylindricalToCartesianCoordinates(vec3 cylCoords){
+  float x = cylCoords.x*cos(2*PI*cylCoords.y);
+  float y = cylCoords.x*sin(2*PI*cylCoords.y);
+  float z = cylCoords.z;
+  vec3 coords = vec3(x,y,z);
+  return coords;
+}
 
-    float d = cylTexCoords.x;
-    float a = cylTexCoords.y;
-    float h = cylTexCoords.z;
+vec3 radial_cell_id(vec3 cylTexCoords, vec3 cell_dims, float i, float j){
 
-    float ring_id = ceil(d/cell_dims.x);
-    float cell_d = fract(d/cell_dims.x)-0.5;
+    float ring_id = floor(cylTexCoords.x/cell_dims.x) + i;
+    ring_id = max(ring_id,1.0);
+    
+    float angle_num = round(2*PI*ring_id*cell_dims.x/cell_dims.y);
+    float angle_id = floor(cylTexCoords.y*angle_num) + j;
+    angle_id = mod(angle_id, angle_num-1);
 
-    float angle_num = round(ring_id*2*PI*cell_dims.x/cell_dims.y);
-    float angle_id = floor(a*angle_num);
-    float cell_a = fract(a*angle_num)-0.5;
-
-    float noise_h = h + noise_1d(vec2(ring_id,angle_id));//additional height position noise
-    float height_id = floor(noise_h/cell_dims.z);
-    float cell_h = fract(noise_h/cell_dims.z)-0.5;
+    float height_id = floor(cylTexCoords.z/cell_dims.z);
 
     vec3 cell_id = vec3(ring_id, angle_id, height_id);
-    vec3 coords_in_cell = vec3(cell_d, cell_a, cell_h);
 
+    return cell_id;
+}
+
+vec3 radial_cell_in_coords(vec3 cylTexCoords, vec3 cell_dims){
+
+    float ring_id = floor(cylTexCoords.x/cell_dims.x);
+    float in_cell_rad = fract(cylTexCoords.x/cell_dims.x)-0.5;
+    
+    float angle_num = round(2*PI*ring_id*cell_dims.x/cell_dims.y);
+    float angle_step = 1.0/angle_num;
+    float in_cell_theta = fract(cylTexCoords.y*angle_num)-0.5;
+
+    float in_cell_height = fract(cylTexCoords.z/cell_dims.z)-0.5;
+
+    vec3 in_cell_cylindrical_coords = vec3(in_cell_rad, in_cell_theta, in_cell_height);
+
+    return in_cell_cylindrical_coords;
+}
+
+vec3 radial_cell_ctr_coords(vec3 cell_id, vec3 cell_dims){
+
+    float cell_ctr_rad = cell_dims.x*(cell_id.x+0.5);
+    
+    float angle_num = round(2*PI*cell_id.x*cell_dims.x/cell_dims.y);
+    float angle_step = 1.0/angle_num;
+    float cell_ctr_theta = angle_step*(cell_id.y+0.5);
+
+    float cell_ctr_height = cell_dims.z*(cell_id.z+0.5);
+
+    vec3 cell_ctr_cylindrical_coords = vec3(cell_ctr_rad, cell_ctr_theta, cell_ctr_height);
+    vec3 cell_ctr_coords = cylindricalToCartesianCoordinates(cell_ctr_cylindrical_coords);
+
+    return cell_ctr_coords;
+}
+
+float ellipse_in_radial_cell(vec3 cylTexCoords, vec3 cell_dims, float occurance_ratio, float rad, float smooth_edge_ratio){
+
+    vec3 cell_id = radial_cell_id(cylTexCoords, cell_dims, 0.0, 0.0);
+
+    float noise_h = cylTexCoords.z + noise_1d(vec3(cell_id.x, cell_id.y, 0.0)); //additional height position noise
+    vec3 cylTexCoords_temp = cylTexCoords;
+    cylTexCoords_temp.z += noise_h;
+
+    cell_id = radial_cell_id(cylTexCoords_temp, cell_dims, 0.0, 0.0);
+    vec3 coords_in_cell = radial_cell_in_coords(cylTexCoords_temp, cell_dims);
+   
     float f=1.0;
 
     float noise_factor = noise_1d(cell_id);
-    //occurance_rate=1.0;
-    if (noise_factor<occurance_rate){
+    if (noise_factor<occurance_ratio){
         vec3 pos_noise = sin(2*PI*noise_3d(cell_id));
-        coords_in_cell += (0.5-rad)*pos_noise;  
+        coords_in_cell += (0.5-rad)*pos_noise; 
         float vlen = length(coords_in_cell);
         f = smoothstep(rad,rad+smooth_edge_ratio*rad,vlen);
+        //f = pos_noise.z;
     }
 
+    
+
     return f;
 }
 
-//ray
-float ellipse_in_radial_cell(float d, float a, float h, vec3 cell_dims, float occurance_rate, float rad, float smooth_edge_ratio){
-    
-    float angle_num = 128;
-    float angle_step = 1.0/angle_num;
-    float angle_id = floor(a*angle_num);
-    float cell_a = fract(a*angle_num)-0.5;
-
-    float ring_id = ceil(d/cell_dims.x);
-    
-    float angle_num_even = round(ring_id*2*PI*cell_dims.x/cell_dims.y);
-    float angle_step_even = 1.0/angle_num_even;
-    float width_correction_ratio = angle_step_even/angle_step;
-    cell_a = cell_a*width_correction_ratio;
-    float next = pow(2, ceil(log(width_correction_ratio)/log(2)));
-    angle_id = next*floor((angle_id+floor(next/2))/next);
-    angle_id = mod(angle_id,angle_num);
-
-    angle_step = 1.0/(angle_num/next);
-    cell_a = fract(a*(angle_num/next))-0.5;
-
-    float noise_d = d + noise_1d(angle_id);//additional distance position noise
-    ring_id = ceil(noise_d/cell_dims.x);
-    float cell_d = fract(noise_d/cell_dims.x)-0.5;
-    
-    float noise_h = h + noise_1d(vec2(ring_id,angle_id));//additional height position noise
-    float height_id = floor(noise_h/cell_dims.z);
-    float cell_h = fract(noise_h/cell_dims.z)-0.5;
-
-    vec3 cell_id = vec3(ring_id, angle_id, height_id);
-    vec3 coords_in_cell = vec3(cell_d, cell_a, cell_h);
-
-    float f=1.0;
-    
-    float noise_factor = noise_1d(cell_id);
-    if (noise_factor<occurance_rate){
-        coords_in_cell += (0.5-rad)*noise_3d(cell_id);  
-        float vlen = length(coords_in_cell);
-        f = smoothstep(rad,rad+smooth_edge_ratio*rad,vlen);
-        }
-    
-    
-    return f;
-}
-
-
-vec2[2] radial_cell(float d, float a, float cell_dim, float i, float j){
-
-    float ring_id = ceil(d/cell_dim) + i;
-    ring_id = max(ring_id,1.0);
-    float cell_d = (ring_id-0.5)*cell_dim;
-
-    float angle_num = round(ring_id*2*PI);
-    float angle_step = 1.0/angle_num;
-    float angle_id = mod(floor(a*angle_num) + j, angle_num);
-    float cell_a = angle_id*angle_step + 0.5*angle_step;
-
-    vec2 cell_id = vec2(ring_id, angle_id);
-    
-    vec2 my_noise = noise_2d(cell_id);
-    my_noise = 0.5*sin(my_noise);
-    cell_d += cell_dim*my_noise.x;
-    cell_a += angle_step*my_noise.y;
-
-    float cell_x = cell_d*cos(2*PI*cell_a);
-    float cell_y = cell_d*sin(2*PI*cell_a);
-    vec2 cell_coords = vec2(cell_x,cell_y);
-
-    return vec2[2](cell_id, cell_coords);
-}
-
-float[3] vonoroi_radial_grid(vec3 cylTexCoords, float cell_dim){
-
-  float d = cylTexCoords.x;
-  float a = cylTexCoords.y;
-    
+float[3] vonoroi_radial_2d(vec3 cylTexCoords, float cell_dim){
 
   // cartesian coordinates of pixel
-  float px_x = d*cos(2*PI*a);
-  float px_y = d*sin(2*PI*a);
-  vec2 px_coords = vec2(px_x,px_y);
+  vec3 px_coords = cylindricalToCartesianCoordinates(cylTexCoords);
+
+  // prepare cell dim for input to radial cell function
+  vec3 cell_dims = vec3(cell_dim, cell_dim, 10.0);
 
   float min_dist = 100.0;
-  vec2 closest_cell_coord = vec2(0.0,0.0);
-
+  vec3 closest_cell_id = vec3(0.0,0.0,0.0);
+  vec3 closest_cell_coords = vec3(0.0,0.0,0.0);
 
   for(float i=-1.0; i<=1.0; i++){
     for(float j=-1.0; j<=1.0; j++){
-      vec2[2] cell = radial_cell(d, a, cell_dim, i, j);
-      vec2 cell_id = cell[0];
-      vec2 cell_coords = cell[1];
-      vec2 my_noise = noise_2d(cell_id + cell_coords);
-      cell_coords = cell_coords + 0.2*sin(2*PI*my_noise)*cell_dim;
+      vec3 cell_id = radial_cell_id(cylTexCoords, cell_dims, i, j);
+      vec3 cell_coords = radial_cell_ctr_coords(cell_id, cell_dims);
+      vec3 pos_noise = sin(2.0*PI*noise_3d(vec3(cell_id))) * cell_dim;
+      cell_coords += 0.5 * pos_noise;
+      px_coords.z = cell_coords.z;
       float dist = length(cell_coords-px_coords)/cell_dim;
       min_dist = min(min_dist, dist);
       if (dist==min_dist){
-        closest_cell_coord = cell_coords;
+        closest_cell_id = cell_id;
+        closest_cell_coords = cell_coords;
       }
     }
   }
 
-  float rad_coord_d = length(vec2(closest_cell_coord.x, closest_cell_coord.y));
-  float rad_coord_a = atan(closest_cell_coord.y, closest_cell_coord.x) / (2.0 * PI);
+  min_dist = pow(1.0-min_dist,3);
     
-  return float[3](min_dist, rad_coord_d, rad_coord_a);
+  return float[3](min_dist, closest_cell_coords.x, closest_cell_coords.y);
 }
-
-// Vonoroi
-float vonoroi_grid(float x, float y, float cell_dim){
-  vec2 grid_pt = vec2(x,y)/cell_dim;
-  vec2 grid_id = floor(grid_pt);
-  vec2 grid_coords = fract(grid_pt)-0.5;
-  float min_dist = 100.0;
-  for(float i=-1.0; i<=1.0; i++){
-    for(float j=-1.0; j<=1.0; j++){
-        vec2 adj_grid_coords = vec2(i,j);
-        vec2 my_noise = noise_2d(grid_id + adj_grid_coords);
-        vec2 pt_on_adj_grid = adj_grid_coords + 0.5*sin(my_noise);
-        float dist = length(grid_coords - pt_on_adj_grid);
-        min_dist = min(min_dist, dist);
-    }
-  }
-  return min_dist;
-}
-
-
 
 // Normal from neighborhood of height values
 vec3 calculateNormal(float h1, float h2, float h3, float h4, float h, float h5, float h6, float h7, float h8) {
@@ -316,164 +240,143 @@ vec3 get_cylindrical_tex_coords(vec3 p, vec3 pith_org, vec3 pith_dir){
     return vec3(d,a,h);
 }
 
-float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, float trans_start, float trans_peak){
-    float pnoise = 0.02*periodic_noise_1d(vec2(d, cylTexCoords.y));
-    pnoise += 0.075*periodic_noise_1d(vec2(d, d));
+float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, vec2 transition_variables){
+    float pnoise = 0.02*periodic_noise_3d(vec3(d, cylTexCoords.y,0.0)).x;
+    pnoise += 0.075*periodic_noise_3d(vec3(d, d, d)).x;
     float c = mod(d+pnoise,ring_dist) / ring_dist;
-    float t1 = smoothstep(trans_start, trans_peak, c);
-    float t2 = smoothstep(trans_peak, 1.0, c);
+    float t1 = smoothstep(transition_variables[0], transition_variables[1], c);
+    float t2 = smoothstep(transition_variables[1], 1.0, c);
     c = t1 * (1.0 - t2);
     return c;
 }
 
-float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, float p_rate, float p_rad, float f_dim, float f_w, vec3 r_dims, float r_rate, float r_rad, float ring_dist, float ring_tst, float ring_tpk){
+float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, float p_rate, float p_rad, float f_dim, vec3 r_dims, float r_rate, float r_rad, float ring_dist, vec2 mix_variables){
 
     vec3 cylTexCoords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
-    float pc = ellipse_in_even_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 100*p_rad*p_dims.x);
-    float rc = ellipse_in_even_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.0);
-    float[3] fcd = vonoroi_radial_grid(cylTexCoords, f_dim);
-    float ac = annual_ring_factor(cylTexCoords, fcd[1], ring_dist, ring_tst, ring_tpk);
-    ac = 0.2*ac+0.5;
-    float fc = 1.0-f_w*(1.0-fcd[0]);
+    float pc = ellipse_in_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 0.4);
+    float rc = ellipse_in_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.01);
+    float[3] fcd = vonoroi_radial_2d(cylTexCoords, f_dim);
+    //float ac = annual_ring_factor(cylTexCoords, fcd[1], ring_dist, mix_variables);
+    float ac = annual_ring_factor(cylTexCoords, cylTexCoords.x, ring_dist, mix_variables);
+    
+    float fc = fcd[0];
+    fc = max(fc,ac);
+    fc = 1.0-fc;
+    fc = fc*0.02 + 0.9;
+
+    ac = ac*0.1 + 0.9;
+    
     float hc = pc*ac*fc;
-    hc = mix(0.5, hc, rc);
+    hc = mix(0.95, hc, rc);
     return hc;
-
-
-
-
 
 }
 
 // Main
-
 void main() {
 
-    vec3 p = out_position;
-    //vec4 col = vec4(p, 0.0); //for debugging 3d texture coordinates
-
     // Get pixel position in relation to the pith (center line). 
-    // Distnace (d), height (h), angle (a)
     vec3 pith_dir = normalize(pith_dir_in);
-    vec3 cylTexCoords = get_cylindrical_tex_coords(p,pith_org,pith_dir);
+    vec3 cylTexCoords = get_cylindrical_tex_coords(texCoords3D,pith_org,pith_dir);
     
     //Fibers (vonoroi)
-    float[3] fiber_pattern = vonoroi_radial_grid(cylTexCoords, fiber_cell_dim);
-    float min_dist = fiber_pattern[0];
-    float fiber_cell_d = fiber_pattern[1];
-    float fiber_cell_a = fiber_pattern[2];
-    
-    float fc = min_dist;
-    //vec4 fiber_color = clamp(0.85+vec4(fc, fc, fc, 0.0),0.0,1.0);
-    vec4 fiber_color = vec4(min_dist,min_dist,min_dist,0.0);
+    float[3] fiber_pattern = vonoroi_radial_2d(cylTexCoords, fiber_cell_dim);
+    float fc = fiber_pattern[0];
+    float fiber_cell_id_d = fiber_pattern[1];
+    float fiber_cell_id_a = fiber_pattern[2];
+    //vec4 fiber_color = vec4(fc,fc,fc,0.0); //for debuggning
 
     // Annual rings
-    float ring_color_transition_start = 0.5;
-    float ring_color_transition_peak = 0.9;
-    float c = annual_ring_factor(cylTexCoords, fiber_cell_d, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
-    float noise_mix = 0.2*sin(noise_1d(vec2(fiber_cell_d,fiber_cell_a)));
+    float c = annual_ring_factor(cylTexCoords, cylTexCoords.x, average_ring_distance, ring_col_mix_variables);
+    //float c = annual_ring_factor(cylTexCoords, fiber_cell_id_d, average_ring_distance, ring_col_mix_variables);
+    float noise_mix = 0.2*sin(noise_1d(vec3(fiber_cell_id_d,fiber_cell_id_a,0.0)));
     vec3 annual_ring_color = mix(earlywood_col, latewood_col, c+noise_mix); 
     //annual_ring_color = vec3(c,c,c); //for debugging
 
-
     // Pores
     // Constructing the pore 'grid'
-    //float pore_occurance_rate_modified = c*c;
-    float pore_occurance_rate_modified = pore_occurance_rate;
-    float pore_f = ellipse_in_even_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_rate_modified, pore_radius, 0.4);
-    vec3 pore_color = 0.05*(1.0-vec3(pore_f,pore_f,pore_f));
+    //float pore_occurance_ratio_modified = c*c;
+    float pore_occurance_ratio_modified = pore_occurance_ratio;
+    float pore_f = ellipse_in_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_ratio_modified, pore_radius, 0.4);
+    vec3 pore_color = 0.2*(1.0-vec3(pore_f,pore_f,pore_f));
     //vec3 pore_color = vec3(pore_f,pore_f,pore_f); // for debugging
-
 
     // Rays
     // Constructing the ray 'grid'
-    //float ray_f = ellipse_in_radial_cell(d,a,h,ray_cell_dims, ray_occurance_rate, ray_radius, 0.2); // alternative method (under evaluation)
-    float ray_f = ellipse_in_even_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_rate, ray_radius, 0.1);
+    float ray_f = ellipse_in_radial_cell(cylTexCoords,ray_cell_dims, ray_occurance_ratio, ray_radius, 0.1);
     //vec3 ray_color = vec3(ray_f,ray_f,ray_f); // for debuggung
 
-
-    // Normals - for creating normal map (especially of pores and fibers)
-    // Define tangent and bitangent
-    vec3 normal = normalize(out_normal);
-    vec3 tangent = normalize(cross(normal, vec3(0.5, 0.5, 0.5)));
-    vec3 bitangent = cross(normal, tangent);
-
-
     // Sample heights
-    float stepSize = 0.005*fiber_cell_dim; // Adjust this based on your texture resolution
-    float fiber_weight = 0.0005;
-    float height_center = get_height_map_value( p,                        pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak); // Your height function
-    float height_x_plus = get_height_map_value( p + stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
-    float height_x_minus = get_height_map_value(p - stepSize * tangent,   pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
-    float height_y_plus = get_height_map_value( p + stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
-    float height_y_minus = get_height_map_value(p - stepSize * bitangent, pith_org, pith_dir, pore_cell_dims, pore_occurance_rate_modified, pore_radius, fiber_cell_dim, fiber_weight, ray_cell_dims, ray_occurance_rate, ray_radius, average_ring_distance, ring_color_transition_start, ring_color_transition_peak);
+    float stepSize = 0.01*fiber_cell_dim; // Adjust this based on your texture resolution
+    float height_center = get_height_map_value( texCoords3D,                     pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables); // Your height function
+    float height_x_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_x_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_y_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_y_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
 
     vec3 col_heightmap = vec3(height_center,height_center,height_center); // for debugging
 
-    // Compute partial derivatives
-    vec3 dPdx = vec3(stepSize, 0.0, height_x_plus - height_x_minus);
-    vec3 dPdy = vec3(0.0, stepSize, height_y_plus - height_y_minus);
-
-    // Compute normal
-    vec3 computedNormal = normalize(cross(dPdx, dPdy));
-
-    // Output normal to color (for debugging)
+    // Compute partial derivatives and normal thereafter
+    float dHeightdx = height_x_plus - height_x_minus;
+    float dHeightdy = height_y_plus - height_y_minus;
+    vec3 computedNormal = normalize(vec3(-dHeightdx/stepSize, -dHeightdy/stepSize, 100.0));
     vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0); // for debugging
 
-    // Compute normal map normal in world space
-    mat3 TBN = mat3(tangent, bitangent, out_normal);
-    vec3 worldNormal = normalize(TBN * computedNormal);
+    // Add normal map
+    vec3 norm = normalize(TBN * computedNormal);
+    //vec3 norm = normalize(normal); //for debuggning
 
-    // Combine base normal with normal map normal
-    vec3 combinedNormal = normalize(worldNormal);
-    //vec3 combinedNormal = normalize(out_normal);
+    //Color pores by depth
+    float dotProduct = dot(pith_dir, normalize(baseTBN[2]));
+    float angle_between_1 = acos(dotProduct);
+    dotProduct = dot(pith_dir, -normalize(baseTBN[2]));
+    float angle_between_2 = acos(dotProduct);
+    float angle_between = min(angle_between_1, angle_between_2);
+    angle_between /= 0.6*PI;
+    pore_color *= (1.0-angle_between);
 
-    // Rougness
-    float roughness = 0.9*max(1.0-ray_f,c);
+    //Light/view direction setup
+    vec3 lightDir = normalize(lightPos-fragPos);
+    vec3 viewDir = normalize(viewPos-fragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);
 
-    // Object color
+    // Light properties
+    float roughness = min(ray_f, 0.8-0.6*c);
+    float ambientIntensity = 0.8;
+    float diffuseIntensity = 0.5;
+    float specularStrength = 0.5; // Controls the intensity of the specular highlight
+
+    // Base color
     vec3 objectColor = annual_ring_color-pore_color;
     objectColor = mix(ray_color, objectColor, ray_f);
 
-    vec3 lightDir = normalize(lightPos-fragPos);
-    vec3 viewPos = vec3(0.0, 0.0, -5.0);
-    vec3 viewDir = normalize(viewPos-fragPos);
-    float ambientIntensity = 0.8;
-    float diffuseIntensity = 0.3;
-    float specularStrength = 0.2; // Controls the intensity of the specular highlight
-
-
-    //normal = normalize(out_normal);
-    normal = normalize(combinedNormal);
-    
-    // Calculate the diffuse component
-    float diffuse = max(dot(normal, lightDir), 0.0);
-    vec3 diffuseColor = diffuse * objectColor * diffuseIntensity;
-    
-    // Calculate the ambient component
+    // Ambient
     vec3 ambientColor = ambientIntensity * objectColor;
-    
-    // Specular calculation
-    vec3 reflectDir = reflect(-lightDir, normal);
 
-    // Modify the specular intensity by the roughness
-    //roughness = 0.5; // for debugging
+    // Diffuse 
+    float diffuse = max(dot(norm, lightDir), 0.0);
+    vec3 diffuseColor = diffuse * diffuseIntensity * objectColor;
+        
+    // Specular
+    //roughness = 0.9; // for debugging
     float specular = pow(max(dot(viewDir, reflectDir), 0.0), (1.0 - roughness) * 128.0); // Roughness affects shininess
-    vec3 specularColor = specularStrength * specular * objectColor; // or use light color instead of object color
+    vec3 specularColor = specularStrength * specular * vec3(1.0,1.0,1.0); // or use light color instead of object color
 
-    // Combine the diffuse, ambient, and specular components
-    vec3 color = diffuseColor + ambientColor + specularColor;
-    //vec3 color = specularColor;
+    // Combine diffuse, ambient, and specular
+    vec3 color =  ambientColor + diffuseColor + specularColor;
+    //color = diffuseColor;
+    //color = specularColor;
     fragColor = vec4(color, 1.0);
 
+    //All below for debugging
     //fragColor = annual_ring_color*fiber_color;
-    //fragColor = fiber_color;
+    ///fragColor = fiber_color;
     //fragColor = vec4(annual_ring_color,1.0);
-    //fragColor = pore_color;
+    //fragColor = vec4(pore_color,1.0);
     //fragColor = ray_color;
-    // = vec4(d,a,h-2.0, 0.0); //for debugging
+    //fragColor = vec4(d,a,h-2.0, 0.0); 
     //fragColor = vec4(col_heightmap,0.0);
-    //fragColor = vec4(0.5*(out_abs_normal+1.0),0.0);
     //fragColor = distorted_normal_color;
     //fragColor = vec4(roughness,roughness,roughness,0.0);
+    //fragColor = vec4(lightPos,0.0);
 }

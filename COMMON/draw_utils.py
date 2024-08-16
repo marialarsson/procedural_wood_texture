@@ -10,9 +10,12 @@ def update_rotation(shader, t, xrot0=-math.pi/5, yrot0=math.pi/4, zrot0=0, xrotf
     rot_x = pyrr.Matrix44.from_x_rotation(xrot0 + xrotf * t)
     rot_y = pyrr.Matrix44.from_y_rotation(yrot0 + yrotf * t)
     rot_z = pyrr.Matrix44.from_z_rotation(zrot0 + zrotf * t)
-    transformLoc = glGetUniformLocation(shader, "transform")
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, rot_x * rot_y * rot_z)
+    modelLoc = glGetUniformLocation(shader, "model")
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE,  rot_x * rot_y * rot_z)
+    
 
+    #transformLoc = glGetUniformLocation(shader, "transform")
+    #glUniformMatrix4fv(transformLoc, 1, GL_FALSE, rot_x * rot_y * rot_z)
 
 
 def draw_cuboid_with_procedural_texture(shader, inds, t, offset=0,  xrot0=-math.pi/5, yrot0=math.pi/4, zrot0=0.0, xrotf=0.1, yrotf=0.16, zrotf=0.0):

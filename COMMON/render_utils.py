@@ -36,20 +36,21 @@ def buffer_verts_and_inds(verts,inds, tex_coords=False):
 
 
 
-def update_shader_camera_uniforms(shader, view, projection, model, light_pos):
+def update_shader_camera_uniforms(shader, view, projection, model, view_pos, light_pos):
 
     glUseProgram(shader)
 
     view_loc = glGetUniformLocation(shader, "view")
     proj_loc = glGetUniformLocation(shader, "projection")
     model_loc = glGetUniformLocation(shader, "model")
-    light_loc = glGetUniformLocation(shader, "lightPosition")
+    view_pos_loc = glGetUniformLocation(shader, "viewPos")
+    light_pos_loc = glGetUniformLocation(shader, "lightPos")
     
-
     glUniformMatrix4fv(view_loc, 1, GL_FALSE, view)
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection)
     glUniformMatrix4fv(model_loc, 1, GL_FALSE, model)
-    glUniform3fv(light_loc, 1, GL_FALSE, light_pos)
+    glUniform3f(view_pos_loc, view_pos[0], view_pos[1], view_pos[2])
+    glUniform3f(light_pos_loc, light_pos[0], light_pos[1], light_pos[2])
 
 
 def get_cuboid_with_normals(h, w, d):

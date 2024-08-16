@@ -12,26 +12,44 @@ def get_vertex_shader():
             layout (location = 1) in vec2 in_tex_coord;
             layout (location = 2) in vec3 in_normal;
 
-            uniform mat4 projection;
-            uniform mat4 view;
             uniform mat4 model;
+            uniform mat4 view;
+            uniform mat4 projection;
             uniform mat4 transform;
-            uniform vec3 lightPosition;
 
-            out vec3 out_position;
             out vec3 fragPos;
-            out vec3 out_abs_normal;
-            out vec3 out_normal;
-            out vec3 lightPos;
+            out vec3 normal;
+            out vec3 texCoords3D;
+            out mat3 TBN; 
+            out mat3 baseTBN;
+            
 
             void main() {
+
+                //3d texture coordinates
+                texCoords3D = in_position;
+
+                // Transform position from object space to world space
                 vec4 worldPosition = model * vec4(in_position, 1.0);
                 fragPos = worldPosition.xyz;
-                gl_Position = projection * view * model * transform * vec4(in_position, 1.0);
-                out_abs_normal = in_normal;
-                out_normal = normalize(transpose(inverse(mat3(model))) * in_normal);
-                out_position = in_position;
-                lightPos = (view * vec4(lightPosition, 1.0)).xyz;  // Transform light position to view space
+
+                //Tangent-Binormal-Normal matrix (absolute)
+                vec3 baseTangent = cross( normalize( vec3(0.5,0.5,0.5) ), normalize(in_normal) );
+                vec3 baseBinormal =  normalize(cross(in_normal, baseTangent));
+                baseTBN = mat3(baseTangent, baseBinormal, in_normal);
+
+                // Transform normal from object space to world space
+                vec3 worldNormal = normalize(mat3(transpose(inverse(model))) * in_normal);
+                normal = worldNormal;
+
+                //Tangent-Binormal-Normal matrix (transformed)
+                vec3 tangent = normalize( mat3(transpose(inverse(model))) * baseTangent );
+                vec3 binormal = normalize(cross(normal, tangent));
+                TBN = mat3(tangent, binormal, normal);
+
+                // Transform position from world space to screen space
+                gl_Position = projection * view * worldPosition;
+
             }
           """
     return VERTEX_SHADER
