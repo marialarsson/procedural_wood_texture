@@ -18,7 +18,7 @@ uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.
 uniform float average_ring_distance = 0.1;
 uniform vec3 earlywood_col = vec3(0.75,0.70,0.54);
 uniform vec3 latewood_col = vec3(0.65,0.55,0.42);
-uniform vec2 ring_col_mix_variables = vec2(0.5, 0.9);
+uniform vec2 ring_col_mix_variables = vec2(0.4, 0.85);
 
 //fibers
 uniform float fiber_cell_dim = 0.005; //cell size
@@ -92,13 +92,22 @@ vec3 closestPointOnLine(vec3 ro, vec3 rd, vec3 p){
   return cp;
 }
 
-vec3 cylindricalToCartesianCoordinates(vec3 cylCoords){
+vec3 cylindricalToCartesian(vec3 cylCoords){
   float x = cylCoords.x*cos(2*PI*cylCoords.y);
   float y = cylCoords.x*sin(2*PI*cylCoords.y);
   float z = cylCoords.z;
   vec3 coords = vec3(x,y,z);
   return coords;
 }
+
+vec3 cartesianToCylindrical(vec3 coords){
+  float r = length(vec2(coords.x, coords.y)); 
+  float t = atan(coords.y, coords.x) / (2.0 * PI);  
+  float h = coords.z;
+  vec3 cylCoords = vec3(r,t,h);
+  return cylCoords;
+}
+
 
 vec3 radial_cell_id(vec3 cylTexCoords, vec3 cell_dims, float i, float j){
 
@@ -143,7 +152,7 @@ vec3 radial_cell_ctr_coords(vec3 cell_id, vec3 cell_dims){
     float cell_ctr_height = cell_dims.z*(cell_id.z+0.5);
 
     vec3 cell_ctr_cylindrical_coords = vec3(cell_ctr_rad, cell_ctr_theta, cell_ctr_height);
-    vec3 cell_ctr_coords = cylindricalToCartesianCoordinates(cell_ctr_cylindrical_coords);
+    vec3 cell_ctr_coords = cylindricalToCartesian(cell_ctr_cylindrical_coords);
 
     return cell_ctr_coords;
 }
@@ -175,37 +184,45 @@ float ellipse_in_radial_cell(vec3 cylTexCoords, vec3 cell_dims, float occurance_
     return f;
 }
 
-float[3] vonoroi_radial_2d(vec3 cylTexCoords, float cell_dim){
+vec3[3] vonoroi_radial_2d(vec3 cylCoords, vec3 cell_dims){
 
   // cartesian coordinates of pixel
-  vec3 px_coords = cylindricalToCartesianCoordinates(cylTexCoords);
-
-  // prepare cell dim for input to radial cell function
-  vec3 cell_dims = vec3(cell_dim, cell_dim, 10.0);
+  vec3 px_coords = cylindricalToCartesian(cylCoords);
 
   float min_dist = 100.0;
-  vec3 closest_cell_id = vec3(0.0,0.0,0.0);
-  vec3 closest_cell_coords = vec3(0.0,0.0,0.0);
+  vec3 min_dist_vec = vec3(99.0, 99.0, 99.0);
+  vec3 closest_cell_id = vec3(0.0, 0.0, 0.0);
+  vec3 closest_cell_ctr_coords = vec3(0.0, 0.0, 0.0);
 
   for(float i=-1.0; i<=1.0; i++){
     for(float j=-1.0; j<=1.0; j++){
-      vec3 cell_id = radial_cell_id(cylTexCoords, cell_dims, i, j);
+
+      // Get cell id and cell center coordinates
+      vec3 cell_id = radial_cell_id(cylCoords, cell_dims, i, j);
       vec3 cell_coords = radial_cell_ctr_coords(cell_id, cell_dims);
-      vec3 pos_noise = sin(2.0*PI*noise_3d(vec3(cell_id))) * cell_dim;
+
+      // Add noise to cell center coordinates
+      vec3 pos_noise = sin(2.0*PI*noise_3d(cell_id)) * cell_dims;
       cell_coords += 0.5 * pos_noise;
-      px_coords.z = cell_coords.z;
-      float dist = length(cell_coords-px_coords)/cell_dim;
-      min_dist = min(min_dist, dist);
-      if (dist==min_dist){
+
+      // Ignore height
+      cell_coords.z = px_coords.z;
+
+      // Calcualte distance from pixel point to current cell center
+      vec3 dist_vec = (cell_coords-px_coords)/cell_dims; 
+      float dist = length(dist_vec);
+      if (dist<=min_dist){
+        min_dist = dist;
+        min_dist_vec = dist_vec;
         closest_cell_id = cell_id;
-        closest_cell_coords = cell_coords;
+        closest_cell_ctr_coords = cell_coords;
       }
     }
   }
+  
+  vec3 closest_cell_ctr_cylCoords = cartesianToCylindrical(closest_cell_ctr_coords);
 
-  min_dist = pow(1.0-min_dist,3);
-    
-  return float[3](min_dist, closest_cell_coords.x, closest_cell_coords.y);
+  return vec3[3](min_dist_vec, closest_cell_id, closest_cell_ctr_cylCoords);
 }
 
 // Normal from neighborhood of height values
@@ -244,8 +261,9 @@ float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, vec2 trans
     float pnoise = 0.02*periodic_noise_3d(vec3(d, cylTexCoords.y,0.0)).x;
     pnoise += 0.075*periodic_noise_3d(vec3(d, d, d)).x;
     float c = mod(d+pnoise,ring_dist) / ring_dist;
-    float t1 = smoothstep(transition_variables[0], transition_variables[1], c);
-    float t2 = smoothstep(transition_variables[1], 1.0, c);
+    float peak = transition_variables[1];
+    float t1 = smoothstep(transition_variables[0], peak, c);
+    float t2 = smoothstep(peak, 1.0, c);
     c = t1 * (1.0 - t2);
     return c;
 }
@@ -255,12 +273,12 @@ float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, fl
     vec3 cylTexCoords = get_cylindrical_tex_coords(p, pith_org, pith_dir);
     float pc = ellipse_in_radial_cell(cylTexCoords, p_dims, p_rate, p_rad, 0.4);
     float rc = ellipse_in_radial_cell(cylTexCoords,r_dims, r_rate, r_rad, 0.01);
-    float[3] fcd = vonoroi_radial_2d(cylTexCoords, f_dim);
+    vec3[3] fcd = vonoroi_radial_2d(cylTexCoords, vec3(f_dim,f_dim,99.0));
     //float ac = annual_ring_factor(cylTexCoords, fcd[1], ring_dist, mix_variables);
     float ac = annual_ring_factor(cylTexCoords, cylTexCoords.x, ring_dist, mix_variables);
     
-    float fc = fcd[0];
-    fc = max(fc,ac);
+    float fc = length(fcd[0]);
+    fc = 0.5*(max(fc,ac) + fc);
     fc = 1.0-fc;
     fc = fc*0.02 + 0.9;
 
@@ -280,16 +298,17 @@ void main() {
     vec3 cylTexCoords = get_cylindrical_tex_coords(texCoords3D,pith_org,pith_dir);
     
     //Fibers (vonoroi)
-    float[3] fiber_pattern = vonoroi_radial_2d(cylTexCoords, fiber_cell_dim);
-    float fc = fiber_pattern[0];
-    float fiber_cell_id_d = fiber_pattern[1];
-    float fiber_cell_id_a = fiber_pattern[2];
-    //vec4 fiber_color = vec4(fc,fc,fc,0.0); //for debuggning
+    vec3[3] fiber_pattern = vonoroi_radial_2d(cylTexCoords, vec3(fiber_cell_dim,fiber_cell_dim,99.0));
+    float fc = length(fiber_pattern[0]);
+    vec3 f_cell_id =  fiber_pattern[1];
+    vec3 f_cell_coords = fiber_pattern[2];
+
+    vec4 fiber_color = vec4(fc,fc,fc,0.0); //for debuggning
 
     // Annual rings
-    float c = annual_ring_factor(cylTexCoords, cylTexCoords.x, average_ring_distance, ring_col_mix_variables);
-    //float c = annual_ring_factor(cylTexCoords, fiber_cell_id_d, average_ring_distance, ring_col_mix_variables);
-    float noise_mix = 0.2*sin(noise_1d(vec3(fiber_cell_id_d,fiber_cell_id_a,0.0)));
+    //float c = annual_ring_factor(cylTexCoords, cylTexCoords.x, average_ring_distance, ring_col_mix_variables);
+    float c = annual_ring_factor(cylTexCoords, f_cell_coords.x, average_ring_distance, ring_col_mix_variables);
+    float noise_mix = 0.2*sin(noise_1d(f_cell_id));
     vec3 annual_ring_color = mix(earlywood_col, latewood_col, c+noise_mix); 
     //annual_ring_color = vec3(c,c,c); //for debugging
 
@@ -319,7 +338,7 @@ void main() {
     // Compute partial derivatives and normal thereafter
     float dHeightdx = height_x_plus - height_x_minus;
     float dHeightdy = height_y_plus - height_y_minus;
-    vec3 computedNormal = normalize(vec3(-dHeightdx/stepSize, -dHeightdy/stepSize, 100.0));
+    vec3 computedNormal = normalize(vec3(-dHeightdx/stepSize, -dHeightdy/stepSize, 200.0));
     vec4 distorted_normal_color = vec4(computedNormal * 0.5 + 0.5, 1.0); // for debugging
 
     // Add normal map
@@ -370,7 +389,7 @@ void main() {
 
     //All below for debugging
     //fragColor = annual_ring_color*fiber_color;
-    ///fragColor = fiber_color;
+    //fragColor = fiber_color;
     //fragColor = vec4(annual_ring_color,1.0);
     //fragColor = vec4(pore_color,1.0);
     //fragColor = ray_color;

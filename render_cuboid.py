@@ -12,6 +12,9 @@ import shader_utils
 import draw_utils
 
 def main():
+
+    gif_frame_images = []
+
     if not glfw.init():
         return
 
@@ -66,9 +69,9 @@ def main():
     zrot0 = 0.0
 
     t = 0
+    tmax = 20
 
     while not glfw.window_should_close(window):
-
         
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -76,26 +79,40 @@ def main():
 
         # Finalize
         img = render_utils.get_image_from_glbuffer(width,height)
+        if t%5==0: gif_frame_images.append(img)
         glfw.swap_buffers(window)
         glfw.poll_events()
         t+=1
         
         # rotate light around model
         light_distance = 4.0
-        ang = 0.03*t #math.pi/3
+        ang = math.pi + 2 * math.pi * t / tmax
         x = light_distance * math.cos(ang)
-        y = light_distance*1.0
+        y = light_distance*0.5
         z = light_distance * math.sin(ang)
-        #light_pos = [x, y, z]
-        #light_pos_loc = glGetUniformLocation(shader_procedural_wood, "lightPos")
-        #glUniform3f(light_pos_loc, light_pos[0], light_pos[1], light_pos[2])
+        light_pos = [x, y, z]
+        light_pos_loc = glGetUniformLocation(shader_procedural_wood, "lightPos")
+        glUniform3f(light_pos_loc, light_pos[0], light_pos[1], light_pos[2])
+
+        if t>=tmax: break
     
     glfw.terminate()
 
-    # save
+    # save still image
     path = 'screenshot.png'
     img.save(path, 'PNG')
-    print("Saved", path)
+    print("Saved png in", path)
+
+    # save gif image
+    path = 'output.gif'
+    gif_frame_images[0].save(path,save_all=True, append_images=gif_frame_images[1:], optimize=False, duration=1000, loop=0)
+    print("Saved gif in", path)
+
 
 if __name__ == "__main__":
     main()
+
+
+
+
+    

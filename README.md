@@ -1,7 +1,7 @@
 # procedural_wood_texture
 glwf/glsl implementation of procedural wood texture
 
-![Alt text](./screenshot_offset_angle.png)
+![Alt text](./output.gif)
 
 
 
