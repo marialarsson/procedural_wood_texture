@@ -36,9 +36,7 @@ void periodic_noise_3d(TensorXN<float, 3> p,
     const auto num = static_cast<int>(p.shape(0));
     CHECK_TENSOR_SIZE(out, 0, num);
 
-    for (int i = 0; i < num; ++i) {
-        diffwood::periodic_noise_3d(p.data() + i * 3, out.data() + i * 3);
-    }
+    diffwood::periodic_noise_3d(num, p.data(), out.data(), is_cuda);
 }
 
 } // namespace

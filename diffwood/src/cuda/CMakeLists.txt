@@ -7,7 +7,7 @@ set(CMAKE_CUDA_STANDARD 14)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
 set(SRC common.cuh
-        add.cu)
+        noise.cu)
 
 add_library(cudiffwood ${SRC})
 target_include_directories(cudiffwood PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
