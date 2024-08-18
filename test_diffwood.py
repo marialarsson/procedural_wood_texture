@@ -43,3 +43,12 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(output_dir, './noise_cuda.png'))
 
 
+    noise = dw.periodic_noise_3d_torch(p).view(height, width, 3)
+    noise = noise.detach().cpu().numpy()
+
+    plt.clf()
+    plt.title('NoiseX')
+    plt.imshow(noise[..., 0])
+    plt.savefig(os.path.join(output_dir, './noise_torch.png'))
+
+
