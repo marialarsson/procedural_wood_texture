@@ -11,30 +11,30 @@ uniform vec3 viewPos;
 uniform vec3 lightPos;
 
 // pith 
-uniform vec3 pith_org = vec3(0.6, 0.0, 0.4); //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
-uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
+uniform vec3 pith_org; //vec3(0.7, 0.2, 0.0); //vec3(0.2, 0.4, 0.0); //vec3(0.6, 0.0, 0.4); 
+uniform vec3 pith_dir_in; //vec3(0.3, 0.0, 1.0); //vec3(0.5, 1.0, 0.0)
 
 // annual rings
-uniform float average_ring_distance = 0.1;
-uniform vec3 earlywood_col = vec3(0.75,0.70,0.54);
-uniform vec3 latewood_col = vec3(0.65,0.55,0.42);
-uniform vec2 ring_col_mix_variables = vec2(0.4, 0.9);
+uniform float average_ring_distance;
+uniform vec3 earlywood_col;
+uniform vec3 latewood_col;
+uniform vec2 ring_col_mix_variables;
 
 //fibers
-uniform float fiber_cell_dim = 0.005; //cell size
+uniform float fiber_cell_dim; //cell size
+uniform float wood_fiber_color_noise_weight;
 
 // pores
-uniform float pore_radius = 0.15; //ratio of elipse size in cell
-uniform float pore_equal_occurance_ratio = 0.8;
-uniform float pore_ring_occurance_ratio = 0.2;
-uniform vec3 pore_cell_dims = vec3(0.015, 0.015, 0.2); //cell radial, angular, height dimensions
-
+uniform float pore_radius; //ratio of elipse size in cell
+uniform float pore_equal_occurance_ratio;
+uniform float pore_ring_occurance_ratio;
+uniform vec3 pore_cell_dims; //cell radial, angular, height dimensions
 
 // rays
-uniform float ray_radius = 0.2; //ratio of elipse size in cell
-uniform float ray_occurance_ratio = 0.5;
-uniform vec3 ray_cell_dims = vec3(0.2, 0.015, 0.4); //cell radial, angular, height dimensions
-uniform vec3 ray_color = vec3(0.66,0.56,0.40);
+uniform float ray_radius; //ratio of elipse size in cell
+uniform float ray_occurance_ratio;
+uniform vec3 ray_cell_dims; //cell radial, angular, height dimensions
+uniform vec3 ray_color;
 
 out vec4 fragColor;
 // Noise functions
@@ -340,7 +340,7 @@ void main() {
     // Annual rings
     //float c = annual_ring_factor(cylTexCoords, cylTexCoords.x, average_ring_distance, ring_col_mix_variables);
     float c = annual_ring_factor(cylTexCoords, f_cell_coords.x, average_ring_distance, ring_col_mix_variables);
-    float noise_mix = 0.2*sin(noise_1d(f_cell_id));
+    float noise_mix = wood_fiber_color_noise_weight*sin(noise_1d(f_cell_id));
     vec3 annual_ring_color = mix(earlywood_col, latewood_col, c+noise_mix); 
     //annual_ring_color = vec3(c,c,c); //for debugging
 
@@ -357,7 +357,7 @@ void main() {
     //vec3 ray_color = vec3(ray_f,ray_f,ray_f); // for debuggung
 
     // Sample heights
-    float stepSize = 0.01*fiber_cell_dim; // Adjust this based on your texture resolution
+    float stepSize = 0.01*fiber_cell_dim; // Adjust based on texture resolution if necessary
     float height_center = get_height_map_value( texCoords3D,                     pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables); // Your height function
     float height_x_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
     float height_x_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);

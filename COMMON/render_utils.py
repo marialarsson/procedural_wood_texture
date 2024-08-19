@@ -52,6 +52,8 @@ def update_shader_camera_uniforms(shader, view, projection, model, view_pos, lig
     glUniform3f(view_pos_loc, view_pos[0], view_pos[1], view_pos[2])
     glUniform3f(light_pos_loc, light_pos[0], light_pos[1], light_pos[2])
 
+    
+
 
 def get_cuboid_with_normals(h, w, d):
     vertices = []
