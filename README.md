@@ -87,10 +87,10 @@ glwf/glsl implementation of procedural wood texture
 ## Parameter overview
 
 <p float="center">
-  <img src="/output_random_rings.gif" width="300" />
-  <img src="/output_random_fibers.gif" width="300" />
-  <img src="/output_random_pores.gif" width="300" />
-  <img src="/output_random_rays.gif" width="300" />
+  <img src="/output_random_rings.gif" width="400" />
+  <img src="/output_random_fibers.gif" width="400" />
+  <img src="/output_random_pores.gif" width="400" />
+  <img src="/output_random_rays.gif" width="400" />
 </p>
 
 1: Random annual ring distances and transitions (constant colors). 2: Random fiber size and mix. 3: Random pore size and occurance rate. 4: Random ray size and occurance rate (constant color).
