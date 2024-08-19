@@ -104,9 +104,10 @@ def main():
     print("Saved png in", path)
 
     # save gif image
-    path = 'output.gif'
-    gif_frame_images[0].save(path,save_all=True, append_images=gif_frame_images[1:], optimize=False, duration=1000, loop=0)
-    print("Saved gif in", path)
+    if tmax<=20:
+        path = 'output.gif'
+        gif_frame_images[0].save(path,save_all=True, append_images=gif_frame_images[1:], optimize=False, duration=1000, loop=0)
+        print("Saved gif in", path)
 
 
 if __name__ == "__main__":

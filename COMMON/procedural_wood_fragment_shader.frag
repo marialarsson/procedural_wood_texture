@@ -18,15 +18,17 @@ uniform vec3 pith_dir_in = vec3(0.5, 1.0, 0.0); //vec3(0.3, 0.0, 1.0); //vec3(0.
 uniform float average_ring_distance = 0.1;
 uniform vec3 earlywood_col = vec3(0.75,0.70,0.54);
 uniform vec3 latewood_col = vec3(0.65,0.55,0.42);
-uniform vec2 ring_col_mix_variables = vec2(0.4, 0.85);
+uniform vec2 ring_col_mix_variables = vec2(0.4, 0.9);
 
 //fibers
 uniform float fiber_cell_dim = 0.005; //cell size
 
 // pores
 uniform float pore_radius = 0.15; //ratio of elipse size in cell
-uniform float pore_occurance_ratio = 0.8;
+uniform float pore_equal_occurance_ratio = 0.8;
+uniform float pore_ring_occurance_ratio = 0.2;
 uniform vec3 pore_cell_dims = vec3(0.015, 0.015, 0.2); //cell radial, angular, height dimensions
+
 
 // rays
 uniform float ray_radius = 0.2; //ratio of elipse size in cell
@@ -252,19 +254,50 @@ vec3 get_cylindrical_tex_coords(vec3 p, vec3 pith_org, vec3 pith_dir){
     a = map(a, 0.0, 2.0*PI, 0, 1.0);                    //map angle from range 0-2pi to 0-1.0
     //Add some noise for distortion of distnace field
     vec3 distortion_noise = periodic_noise_3d(vec3(d,a,0.25*h)); //higher lower factor before h leads to more/less height-wise wavy-ness of the pattern
-    d += 0.10*distortion_noise.x*d;
+    d += 0.05*distortion_noise.x*d;
     a += 0.01*distortion_noise.y;
+    d += 0.095; //ring center offset 
     return vec3(d,a,h);
 }
 
 float annual_ring_factor(vec3 cylTexCoords, float d, float ring_dist, vec2 transition_variables){
-    float pnoise = 0.02*periodic_noise_3d(vec3(d, cylTexCoords.y,0.0)).x;
-    pnoise += 0.075*periodic_noise_3d(vec3(d, d, d)).x;
-    float c = mod(d+pnoise,ring_dist) / ring_dist;
-    float peak = transition_variables[1];
-    float t1 = smoothstep(transition_variables[0], peak, c);
-    float t2 = smoothstep(peak, 1.0, c);
-    c = t1 * (1.0 - t2);
+
+    //float c = mod(d+pnoise,ring_dist) / ring_dist; //old
+
+    const int max_number_of_rings = 100;
+    
+    // list of ring rads
+    float[max_number_of_rings] ring_rads;
+    for (int i = 0; i < max_number_of_rings; i++) {
+
+        ring_rads[i] = i * ring_dist;
+
+        // add noise
+        float pnoise = periodic_noise_3d(vec3(d, cylTexCoords.y,0.0)).x;
+        pnoise += 2.0*periodic_noise_3d(vec3(d, d, d)).x;
+        ring_rads[i] += 0.33*ring_dist*sin(pnoise);
+    }
+
+    // find nearest lower value
+    int index = 0; //-1;  // Default if no lower value is found
+    for (int i = 0; i < max_number_of_rings; i++) {
+        if (ring_rads[i] <= d) {
+            index = i;
+        } else {
+            break;
+        }
+    }
+
+    // calcualte range and values for ring
+    float ring_range = ring_rads[index+1]-ring_rads[index];
+    float late_wood_start = ring_rads[index+1] - (1.0 - transition_variables[0])*ring_dist;
+    float late_wood_peak =  ring_rads[index+1] - (1.0 - transition_variables[1])*ring_dist;
+    
+    // apply smoothsteps etc
+    float c1 = smoothstep(late_wood_start, late_wood_peak, d);
+    float c2 = 1.0-smoothstep(late_wood_peak, ring_rads[index+1], d);
+    float c = min(c1, c2);
+    
     return c;
 }
 
@@ -292,7 +325,7 @@ float get_height_map_value(vec3 p, vec3 pith_org, vec3 pith_dir, vec3 p_dims, fl
 
 // Main
 void main() {
-
+    
     // Get pixel position in relation to the pith (center line). 
     vec3 pith_dir = normalize(pith_dir_in);
     vec3 cylTexCoords = get_cylindrical_tex_coords(texCoords3D,pith_org,pith_dir);
@@ -302,8 +335,7 @@ void main() {
     float fc = length(fiber_pattern[0]);
     vec3 f_cell_id =  fiber_pattern[1];
     vec3 f_cell_coords = fiber_pattern[2];
-
-    vec4 fiber_color = vec4(fc,fc,fc,0.0); //for debuggning
+    //vec4 fiber_color = vec4(fc,fc,fc,0.0); //for debuggning
 
     // Annual rings
     //float c = annual_ring_factor(cylTexCoords, cylTexCoords.x, average_ring_distance, ring_col_mix_variables);
@@ -314,9 +346,8 @@ void main() {
 
     // Pores
     // Constructing the pore 'grid'
-    //float pore_occurance_ratio_modified = c*c;
-    float pore_occurance_ratio_modified = pore_occurance_ratio;
-    float pore_f = ellipse_in_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_ratio_modified, pore_radius, 0.4);
+    float pore_occurance_ratio = c*pore_ring_occurance_ratio + pore_equal_occurance_ratio;
+    float pore_f = ellipse_in_radial_cell(cylTexCoords,pore_cell_dims, pore_occurance_ratio, pore_radius, 0.4);
     vec3 pore_color = 0.2*(1.0-vec3(pore_f,pore_f,pore_f));
     //vec3 pore_color = vec3(pore_f,pore_f,pore_f); // for debugging
 
@@ -327,11 +358,11 @@ void main() {
 
     // Sample heights
     float stepSize = 0.01*fiber_cell_dim; // Adjust this based on your texture resolution
-    float height_center = get_height_map_value( texCoords3D,                     pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables); // Your height function
-    float height_x_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
-    float height_x_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
-    float height_y_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
-    float height_y_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio_modified, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_center = get_height_map_value( texCoords3D,                     pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables); // Your height function
+    float height_x_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_x_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[0], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_y_plus = get_height_map_value( texCoords3D + stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
+    float height_y_minus = get_height_map_value(texCoords3D - stepSize * baseTBN[1], pith_org, pith_dir, pore_cell_dims, pore_occurance_ratio, pore_radius, fiber_cell_dim, ray_cell_dims, ray_occurance_ratio, ray_radius, average_ring_distance, ring_col_mix_variables);
 
     vec3 col_heightmap = vec3(height_center,height_center,height_center); // for debugging
 
