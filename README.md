@@ -84,20 +84,20 @@ glwf/glsl implementation of procedural wood texture
 
 1: Combining fibers and annual rings (let fibers be "pixels" of the annual rings). 2: Blend two colors depending on greyscale value in previous. 3: Add pores. 4: Add rays. 5: Add normal map. 
 
-## Changing pith origin and orientation
+## Parameter overview
 
 <p float="center">
-  <img src="/screenshot_offset_2.png" width="150" />
-  <img src="/screenshot_offset_3.png" width="150" />
-  <img src="/screenshot_angle_1.png" width="150" />
-  <img src="/screenshot_angle_2.png" width="150" />
-  <img src="/screenshot_offset_angle.png" width="150" />
+  <img src="/screenshot_random_pith.png" width="150" />
+  <img src="/screenshot_random_rings.png" width="150" />
+  <img src="/screenshot_random_fibers.png" width="150" />
+  <img src="/screenshot_random_pores.png" width="150" />
+  <img src="/screenshot_random_rays.png" width="150" />
+  <img src="/screenshot_random_all.png" width="150" />
 </p>
 
-1-2: Pith origin offsetted. 3-4: Pith orientation tilted. 5: Pith origin offsetted and orientation tilted.
+1: Random pith origina and direction. 2: Random annual ring distances and transitions (constant colors). 3: Random fiber size and mix. 4: Random pore size and occurance rate. 5: Random ray size and occurance rate (constant color). 6: Random all above.
 
-
-##To dos
+## To do:s
 
 Set up lights
 
