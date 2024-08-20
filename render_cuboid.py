@@ -130,8 +130,8 @@ def main():
         #light_pos_loc = glGetUniformLocation(shader_procedural_wood, "lightPos")
         #glUniform3f(light_pos_loc, light_pos[0], light_pos[1], light_pos[2])
 
-        # variables
-        # Define all variables
+        # Parameters
+        # Define all variables (n=31)
 
         # Pith
         pith_org = np.array([0.6, 0.0, 0.4])
@@ -144,36 +144,36 @@ def main():
         ring_col_mix_variables = np.array([0.4, 0.9])
         earlywood_col = np.array([0.75, 0.70, 0.54])
         latewood_col = np.array([0.65, 0.55, 0.42])
-        average_ring_distance = np.random.normal(loc=0.125, scale=0.025, size=1)
-        a = np.random.normal(loc=0.4, scale=0.1, size=1)
-        b = np.random.normal(loc=0.9, scale=0.05, size=1)
-        ring_col_mix_variables = np.array([a, b])
+        #average_ring_distance = np.random.normal(loc=0.125, scale=0.025, size=1)
+        #a = np.random.normal(loc=0.4, scale=0.1, size=1)
+        #b = np.random.normal(loc=0.9, scale=0.05, size=1)
+        #ring_col_mix_variables = np.array([a, b])
 
         # Fibers
         fiber_cell_dim = 0.005
         wood_fiber_color_noise_weight = 0.2
-        fiber_cell_dim = max(np.random.normal(loc=0.0075, scale=0.0025, size=1), 0.001)
-        wood_fiber_color_noise_weight = max(np.random.normal(loc=0.3, scale=0.2, size=1),0.0)
+        #fiber_cell_dim = max(np.random.normal(loc=0.0075, scale=0.0025, size=1), 0.001)
+        #wood_fiber_color_noise_weight = max(np.random.normal(loc=0.3, scale=0.2, size=1),0.0)
 
         # Pores
         pore_radius = 0.15
         pore_equal_occurance_ratio = 0.8
         pore_ring_occurance_ratio = 0.2
         pore_cell_dims = np.array([0.015, 0.015, 0.2])
-        pore_radius = max(min(np.random.normal(loc=0.20, scale=0.15, size=1),0.5),0.0)
-        pore_equal_occurance_ratio = np.random.rand(1)
-        pore_ring_occurance_ratio = np.random.rand(1)
-        pore_cell_dims = np.random.normal(loc=0.015, scale=0.005, size=2) * np.array([1.0,10.0]) + np.array([0.0,0.1])
-        pore_cell_dims = np.array([pore_cell_dims[0],pore_cell_dims[0],pore_cell_dims[1]])
+        #pore_radius = max(min(np.random.normal(loc=0.20, scale=0.15, size=1),0.5),0.0)
+        #pore_equal_occurance_ratio = np.random.rand(1)
+        #pore_ring_occurance_ratio = np.random.rand(1)
+        #pore_cell_dims = np.random.normal(loc=0.015, scale=0.005, size=2) * np.array([1.0,10.0]) + np.array([0.0,0.1])
+        #pore_cell_dims = np.array([pore_cell_dims[0],pore_cell_dims[0],pore_cell_dims[1]])
 
         # Rays
         ray_radius = 0.2
         ray_occurance_ratio = 0.5
         ray_cell_dims = np.array([0.2, 0.015, 0.4])
         ray_color = np.array([0.66, 0.56, 0.40])
-        ray_radius = max(min(np.random.normal(loc=0.20, scale=0.05, size=1),0.5),0.0)
-        ray_occurance_ratio = np.random.rand(1)
-        ray_cell_dims = np.random.normal(loc=0.25, scale=0.05, size=3) * np.array([1.0,0.05,2.0]) + np.array([0.0,0.0,0.1])
+        #ray_radius = max(min(np.random.normal(loc=0.20, scale=0.05, size=1),0.5),0.0)
+        #ray_occurance_ratio = np.random.rand(1)
+        #ray_cell_dims = np.random.normal(loc=0.25, scale=0.05, size=3) * np.array([1.0,0.05,2.0]) + np.array([0.0,0.0,0.1])
 
         # Upload all uniforms
         glUniform3f(glGetUniformLocation(shader_procedural_wood, "pith_org"), pith_org[0], pith_org[1], pith_org[2])

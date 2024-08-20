@@ -97,14 +97,14 @@ glwf/glsl implementation of procedural wood texture
 
 ## To do:s
 
-Set up lights
-
-Import information from step 1 of the optimization (pith center line, etc.).
-
 Heartwood/sapwood difference.
+
+More color variation of annual rings:
+- Band-wise color noise
+- Earlywood/latewood color noise
 
 Knots.
 
-Consider changing ray construction to enable more raidus-wise overlap.
+Consider changing ray construction to enable more radius-wise overlap.
 
-...
+
